@@ -121,6 +121,8 @@ public class ShrewBot {
             int[] firstLoopAddresses = { RedBlueAddr.joypadOverworldAddr };
             int[] subsLoopAddresses = { RedBlueAddr.joypadOverworldAddr, RedBlueAddr.printLetterDelayAddr };
 
+            // TODO: use starting position from save
+
             // setup starting positions
             // Compile starting positions
             StartingPositionManager spm = new StartingPositionManager();
@@ -132,18 +134,11 @@ public class ShrewBot {
             startPositionsCosts = new ConcurrentHashMap<>();
             startPositionsEncs = new ConcurrentHashMap<>();
 
-            // god nidos
-            godStats = new boolean[65536];
-            for (int defDV = godDefenseDV; defDV <= 15; defDV++) {
-                for (int spcDV = godSpecialDV; spcDV <= 15; spcDV++) {
-                    for (int variance = -4; variance < 5; variance++) {
-                        int atkDef = (0xF0 + defDV + variance) & 0xFF;
-                        int speSpc = (0xE0 + spcDV + variance) & 0xFF;
-                        godStats[(atkDef << 8) | speSpc] = true;
-                    }
-                }
-            }
 
+
+
+            // okay, instead of importing positions, we can just start searching from the position we have in the savefile
+ /**
             int importedPos = 0;
             if (new File(gameName + "_statesimport_shrew.txt").exists()) {
                 Scanner sc = new Scanner(new File(gameName + "_statesimport_shrew.txt"), "UTF-8");
@@ -165,7 +160,14 @@ public class ShrewBot {
                 sc.close();
 
             }
-            logF("Imported %d old start positions already checked\n", importedPos);
+
+            logF("Imported %d old start positions already checked\n", importedPos)
+                    **/
+
+
+            // this logic can be disabled for the minute
+
+            /**
             int importedEncs = 0;
             if (new File(gameName + "_encounters_shrew.txt").exists()) {
                 Scanner sc = new Scanner(new File(gameName + "_encounters_shrew.txt"), "UTF-8");
@@ -182,6 +184,9 @@ public class ShrewBot {
 
             }
             logF("Imported %d old encounters already checked\n", importedEncs);
+             **/
+
+
             long starttime = System.currentTimeMillis() / 1000L;
             String logFilename = "logs/shrewlog_" + runName + "_" + starttime + ".log";
             if (new File(logFilename).exists()) {

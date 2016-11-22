@@ -1,6 +1,14 @@
 gb-rta-bruteforce
 ==========
 
+#### jhertz modifications/notes
+
+in order to get this to build, you need to use gcc4.2
+make sure its in your path
+the sconstruct file was changed in order to point to my Java8, and to my gcc4.2. you will need to adjust this.
+
+for dependencies, you need: java8, scons, sdl (not sdl2), gcc4.2, and ant. you can install them all with homebrew. 
+
 #### Credits
 
 This code wouldn't be possible without the work of [MrWint's gb-tas-gen](https://github.com/mrwint/gb-tas-gen) which the JNI libgambatte bridge is taken from.
