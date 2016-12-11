@@ -47,110 +47,73 @@ public class EncounterCheckThreadDeathFly extends Thread {
     @Override
     public void run() {
         try {
-            int pathACost = Func.aCount(peg.path, peg.path.length()) * 2;
-            int pathCost = bCost + pathACost;
+            int pathCost = bCost;
             if (pathCost >= DeathFlyBot.maxCostOfPath) {
                 return;
             }
             if (!DeathFlyBot.startPositionsCosts.containsKey(peg.rngState)) {
                 DeathFlyBot.startPositionsCosts.put(peg.rngState, pathCost);
                 DeathFlyBot.startPositionsEncs.put(peg.rngState, new ArrayList<String>());
-                int oogDir = DOWN;
                 ByteBuffer curState = peg.savedState;
                 gb.loadState(curState);
-                int maxSteps = Math.min((DeathFlyBot.maxCostOfPath - pathCost) / 17, DeathFlyBot.maxStepsInGrassArea);
-                for (int step = 0; step < maxSteps; step++) {
-                    int numSteps = step + 1;
-                    if (step % 2 == 1) {
-                        numSteps++;
-                    }
-                    int stepsFrameCost = numSteps * 17;
 
-                    if (pathCost + stepsFrameCost >= DeathFlyBot.maxCostOfPath) {
-                        // too long, not
-                        // interested
-                        break;
-                    }
-                    // first try stepping
-                    // into
-                    // the grass
-                    wrap.injectRBInput(RIGHT);
-                    wrap.advanceWithJoypadToAddress(RIGHT, RedBlueAddr.newBattleAddr);
+                //walk into the death
+                wrap.injectRBInput(UP);
+                wrap.advanceToAddress(RedBlueAddr.newBattleAddr);
 
-                    // encounter found?
-                    if (mem.getHRA() >= 0 && mem.getHRA() <= 14) { // 24
-                        // ok got possible
-                        // FFEF encounter,
-                        // note what it is
-                        String rngAtEnc = mem.getRNGState();
-                        wrap.advanceFrame();
-                        wrap.advanceFrame();
-                        Encounter enc = new Encounter(mem.getEncounterSpecies(), mem.getEncounterLevel(),
-                                mem.getEncounterDVs(), mem.getRNGStateHRAOnly());
+                // encounter found?
+                if (mem.getHRA() >= 0 && mem.getHRA() <= 14) { // 24
+                    //  got encounter?
+                    // TODO: make sure this doesnt get hit by trainer
+                    String rngAtEnc = mem.getRNGState();
+                    wrap.advanceFrame();
+                    wrap.advanceFrame();
+                    Encounter enc = new Encounter(mem.getEncounterSpecies(), mem.getEncounterLevel(),
+                            mem.getEncounterDVs(), mem.getRNGStateHRAOnly());
 
-                        int totalEncCost = pathCost + stepsFrameCost;
-                        String encRep = enc.toString();
-                        DeathFlyBot.startPositionsEncs.get(peg.rngState).add(
-                                encRep + "/" + stepsFrameCost + "/" + rngAtEnc + "/" + step);
-                        synchronized (DeathFlyBot.encountersCosts) {
-                            if (!DeathFlyBot.encountersCosts.containsKey(encRep)
-                                    || DeathFlyBot.encountersCosts.get(encRep) > totalEncCost) {
-                                ps.printf(
-                                        "inputs %s step %d cost %d encounter: species %d lv%d DVs %04X rng %s encrng %s\n",
-                                        peg.path, step + 1, totalEncCost, enc.species, enc.level, enc.dvs,
-                                        enc.battleRNG, rngAtEnc);
-                                DeathFlyBot.encountersCosts.put(encRep, totalEncCost);
-                            }
-                        }
-
-                        if (enc.species == 96 && enc.level == 15 && DeathFlyBot.godStats[enc.dvs]) {
-                            DeathFlyBot.logLN("POTENTIAL GOD SHREW FOUND!");
-                            DeathFlyBot.logF(
-                                    "inputs %s step %d cost %d encounter: species %d lv%d DVs %04X rng %s encrng %s\n",
-                                    peg.path, step + 1, totalEncCost, enc.species, enc.level, enc.dvs, enc.battleRNG,
-                                    rngAtEnc);
-                        }
-                    }
-
-                    // progress
-                    gb.loadState(curState);
-                    wrap.injectRBInput(oogDir);
-                    // skip past OJP we just
-                    // hit, and then reach
-                    // next one
-                    wrap.advanceWithJoypadToAddress(oogDir, RedBlueAddr.joypadOverworldAddr+1);
-                    wrap.advanceWithJoypadToAddress(oogDir, RedBlueAddr.joypadOverworldAddr);
-                    // state save for next
-                    // loop
-                    curState = gb.saveState();
-                    // change out-of-grass
-                    // walking direction?
-                    if (mem.getY() == 6 && oogDir == UP) {
-                        oogDir = DOWN;
-                    } else if (mem.getY() == 9 && oogDir == DOWN) {
-                        oogDir = UP;
-                    }
-                }
-            } else if (pathCost < DeathFlyBot.startPositionsCosts.get(peg.rngState)) {
-                // Don't retest, but do
-                // reconsider encounters
-                DeathFlyBot.startPositionsCosts.put(peg.rngState, pathCost);
-                for (String stateEnc : DeathFlyBot.startPositionsEncs.get(peg.rngState)) {
-                    String[] encBits = stateEnc.split("\\/");
-                    int cost = Integer.parseInt(encBits[4]);
-                    int step = Integer.parseInt(encBits[6]);
-                    String encRep = encBits[0] + "/" + encBits[1] + "/" + encBits[2] + "/" + encBits[3];
-                    int totalEncCost = pathCost + cost;
+                    int totalEncCost = pathCost + 17;
+                    String encRep = enc.toString();
+                    DeathFlyBot.startPositionsEncs.get(peg.rngState).add(
+                            encRep + "/" + 17 + "/" + rngAtEnc + "/" + UP); //XXX: this might be wrong
                     synchronized (DeathFlyBot.encountersCosts) {
-                        if (DeathFlyBot.encountersCosts.get(encRep) > totalEncCost) {
-                            ps.printf("inputs %s step %d cost %d encounter: species %s lv%s DVs %s rng %s encrng %s\n",
-                                    peg.path, step + 1, totalEncCost, encBits[0], encBits[1], encBits[2], encBits[3],
-                                    encBits[5]);
+                        if (!DeathFlyBot.encountersCosts.containsKey(encRep)
+                                || DeathFlyBot.encountersCosts.get(encRep) > totalEncCost) {
+                            ps.printf(
+                                    "inputs %s step %d cost %d encounter: species %d lv%d DVs %04X rng %s encrng %s\n",
+                                    peg.path, 1, totalEncCost, enc.species, enc.level, enc.dvs,
+                                    enc.battleRNG, rngAtEnc);
                             DeathFlyBot.encountersCosts.put(encRep, totalEncCost);
                         }
                     }
-                }
+                    // check if the enc.species is a good encounter
+                    if (enc.species == 96 && enc.level == 15 && DeathFlyBot.godStats[enc.dvs]) {
+                        DeathFlyBot.logLN("POTENTIAL GOD SHREW FOUND!");
+                        DeathFlyBot.logF(
+                                "inputs %s step %d cost %d encounter: species %d lv%d DVs %04X rng %s encrng %s\n",
+                                peg.path, 1, totalEncCost, enc.species, enc.level, enc.dvs, enc.battleRNG,
+                                rngAtEnc);
 
+                        //woot, we found a way to get an encounter on the tile w/ the rng state, record it
+                        if (pathCost < DeathFlyBot.startPositionsCosts.get(peg.rngState)) {
+                            DeathFlyBot.startPositionsCosts.put(peg.rngState, pathCost);
+                            for (String stateEnc : DeathFlyBot.startPositionsEncs.get(peg.rngState)) {
+                                String[] encBits = stateEnc.split("\\/");
+                                int cost = Integer.parseInt(encBits[4]);
+                                int step = Integer.parseInt(encBits[6]);
+                                encRep = encBits[0] + "/" + encBits[1] + "/" + encBits[2] + "/" + encBits[3];
+                                totalEncCost = pathCost + cost;
+                                synchronized (DeathFlyBot.encountersCosts) {
+                                    if (DeathFlyBot.encountersCosts.get(encRep) > totalEncCost) {
+                                        ps.printf("inputs %s step %d cost %d encounter: species %s lv%s DVs %s rng %s encrng %s\n",
+                                                peg.path, step + 1, totalEncCost, encBits[0], encBits[1], encBits[2], encBits[3],
+                                                encBits[5]);
+                                        DeathFlyBot.encountersCosts.put(encRep, totalEncCost);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         } finally {
             synchronized (threadsRunning) {

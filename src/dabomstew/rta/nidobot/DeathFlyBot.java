@@ -21,12 +21,8 @@ import java.util.Set;
 import java.util.Stack;
 import java.util.concurrent.ConcurrentHashMap;
 
+import dabomstew.rta.*;
 import mrwint.gbtasgen.Gb;
-import dabomstew.rta.RedBlueAddr;
-import dabomstew.rta.FileFunctions;
-import dabomstew.rta.Func;
-import dabomstew.rta.GBMemory;
-import dabomstew.rta.GBWrapper;
 
 public class DeathFlyBot {
 
@@ -55,7 +51,7 @@ public class DeathFlyBot {
 
     // Config
 
-    public static final int maxAPresses = 1;
+    public static final int maxAPresses = 0;
     public static final int minAPresses = 0;
     public static int minHops = 2;
     public static int maxHops = 4;
@@ -66,9 +62,16 @@ public class DeathFlyBot {
     public static final int maxStepsInGrassArea = 20;
     public static final int numEncounterThreads = 3;
 
+    // viridian forrest
     public static final byte MAP_ID = 0x33; //D35E
+
+    // these two are for the savefile "baseFiles/deathfly.sav"
     public static final byte BASE_Y = 0x17; //D361
     public static final byte BASE_X = 0x04; //D362
+
+    // this is the tile right behind the DF trainer
+    public static final byte DEATHFLY_Y = 0x13; //D361
+    public static final byte DEATHFLY_X = 0x01; //D362
 
     public static final int hops = 0;
 
@@ -115,11 +118,12 @@ public class DeathFlyBot {
         initLog();
 
 
-        int[] firstLoopAddresses = { RedBlueAddr.joypadOverworldAddr };
-        int[] subsLoopAddresses = { RedBlueAddr.joypadOverworldAddr, RedBlueAddr.printLetterDelayAddr };
+        int[] firstLoopAddresses = {RedBlueAddr.joypadOverworldAddr};
+        int[] subsLoopAddresses = {RedBlueAddr.joypadOverworldAddr, RedBlueAddr.printLetterDelayAddr};
 
         // setup starting positions
         StartingPositionManager spm = new StartingPositionManager();
+        Set<PositionEnteringGrass> endPositions = new HashSet<PositionEnteringGrass>();
 
         // first rect to include, use more if needed
         //top left: 0x17, 0x01
@@ -134,6 +138,9 @@ public class DeathFlyBot {
 
         spm.exclude(0x18, 0x04); // sign
 
+        Position goalPosition = new Position(MAP_ID, DEATHFLY_X, DEATHFLY_Y);
+
+
         encountersCosts = new ConcurrentHashMap<>();
         startPositionsCosts = new ConcurrentHashMap<>();
         startPositionsEncs = new ConcurrentHashMap<>();
@@ -145,57 +152,44 @@ public class DeathFlyBot {
             new File(logFilename).delete();
         }
         PrintStream ps = new PrintStream(logFilename, "UTF-8");
-        //hops = 0;
-        Position pos = spm.iterator();
-        try {
-            int baseCost = 0;
-            ps.printf("Starting position: map %d x %d y %d cost %d\n", pos.map, pos.x, pos.y, baseCost);
-            logF("testing starting position x=%d y=%d map=%d cost=%d\n", pos.x, pos.y, pos.map, baseCost);
 
-            //time to make our base save
-            makeSave("deathfly", MAP_ID, pos.x, pos.y);
+        //TODO: test printing out all startingpositions
+        for (Position pos : spm) {
+            System.out.println("pos:" + pos);
+        }
+
+        for (Position pos : spm) {
+            try {
+                int baseCost = 0;
+                ps.printf("Starting position: map %d x %d y %d cost %d\n", pos.map, pos.x, pos.y, baseCost);
+                logF("testing starting position x=%d y=%d map=%d cost=%d\n", pos.x, pos.y, pos.map, baseCost);
+
+                //time to make our save from base save
+                makeSave("deathfly", MAP_ID, pos.x, pos.y);
+
+                Gb[] gbs = new Gb[numEncounterThreads];
+                GBMemory[] mems = new GBMemory[numEncounterThreads];
+                GBWrapper[] wraps = new GBWrapper[numEncounterThreads];
+
+                for (int i = 0; i < numEncounterThreads; i++) {
+                    gbs[i] = new Gb(i, false);
+                    gbs[i].startEmulator("roms/poke" + gameName + ".gbc");
+                    gbs[i].step(0); // let gambatte initialize itself
+                    mems[i] = new GBMemory(gbs[i]);
+                    wraps[i] = new GBWrapper(gbs[i], mems[i]);
+                }
 
 
-            Gb[] gbs = new Gb[numEncounterThreads];
-            GBMemory[] mems = new GBMemory[numEncounterThreads];
-            GBWrapper[] wraps = new GBWrapper[numEncounterThreads];
-
-            for (int i = 0; i < numEncounterThreads; i++) {
-                gbs[i] = new Gb(i, false);
-                gbs[i].startEmulator("roms/poke" + gameName + ".gbc");
-                gbs[i].step(0); // let gambatte initialize itself
-                mems[i] = new GBMemory(gbs[i]);
-                wraps[i] = new GBWrapper(gbs[i], mems[i]);
-            }
-
-            Set<PositionEnteringGrass> endPositions = new HashSet<PositionEnteringGrass>();
-            // we only have one endposition that works for a deathfly
-
-            {
                 Gb gb = gbs[0];
                 GBMemory mem = mems[0];
                 GBWrapper wrap = wraps[0];
                 int introInputCtr = 0;
-                if (doGamefreakStallIntro) {
-                    wrap.advanceToAddress(RedBlueAddr.delayAtEndOfShootingStarAddr);
-                    int[] introInputs = { B | SELECT | UP, START, A, A };
-                    while (introInputCtr < 4) {
-                        wrap.advanceToAddress(RedBlueAddr.joypadAddr);
-                        // inject intro inputs
-                        wrap.injectRBInput(introInputs[introInputCtr++]);
-                        wrap.advanceFrame();
-                    }
-                } else {
-                    int[] introInputs = { B | SELECT | UP, B | SELECT | UP, START, A, A };
-                    if (hops > 0) {
-                        introInputs = new int[] { A, START, A, START | A, START | A };
-                    }
-                    while (introInputCtr < 5) {
-                        wrap.advanceToAddress(RedBlueAddr.joypadAddr);
-                        // inject intro inputs
-                        wrap.injectRBInput(introInputs[introInputCtr++]);
-                        wrap.advanceFrame();
-                    }
+                int[] introInputs = {B | SELECT | UP, B | SELECT | UP, START, A, A};
+                while (introInputCtr < 5) {
+                    wrap.advanceToAddress(RedBlueAddr.joypadAddr);
+                    // inject intro inputs
+                    wrap.injectRBInput(introInputs[introInputCtr++]);
+                    wrap.advanceFrame();
                 }
 
                 // overworld loop
@@ -210,19 +204,25 @@ public class DeathFlyBot {
                 int[] addresses = firstLoopAddresses;
                 int startX = -1, startY = -1;
                 int lastInput = 0;
+
+                //main loop
+                ByteBuffer curSave = gb.saveState();
+
                 while (checkingPaths) {
-                    int result = wrap.advanceWithJoypadToAddress(lastInput,addresses);
+
+                    //initial setup
+                    int result = wrap.advanceWithJoypadToAddress(lastInput, addresses); //we might be double-stepping here
                     String curState = mem.getUniqid();
 
+                    //check for garbage frames
                     boolean garbage = mem.getTurnFrameStatus() != 0 || result != RedBlueAddr.joypadOverworldAddr;
-                    if(garbage) {
-                        if(mem.getTurnFrameStatus() != 0) {
+                    if (garbage) {
+                        if (mem.getTurnFrameStatus() != 0) {
                             System.out.println("discarded for TFS != 0");
-                            if(mem.isDroppingInputs()) {
+                            if (mem.isDroppingInputs()) {
                                 System.out.println("Uhhhhh");
                             }
-                        }
-                        else {
+                        } else {
                             System.out.println("discarded for not joypadoverworld");
                         }
                     }
@@ -232,82 +232,61 @@ public class DeathFlyBot {
                             System.out.println("discarded for not moving");
                         }
                     }
-                    if (!garbage) {
-                        int actions = PermissibleActionsHandler.actionsGoingToGrass(mem.getMap(), mem.getX(),
-                                mem.getY());
-                        int inputsNextA = Func.inputsUntilNextA(lastPath, maxAPresses);
+                    if (!garbage) { //this isnt a garbage frame, do stuff
+
+                        // does the path get to the goal?
+                        if (goalPosition.x == mem.getX() && goalPosition.y == mem.getY()) { //we're at the deathfly tile!
+                            endPositions.add(new PositionEnteringGrass(curSave, lastPath, mem
+                                    .getRNGState()));
+                            numEndPositions++;
+                            if (numEndPositions >= bbLimit) { //we're done finding paths
+                                long end = System.currentTimeMillis();
+                                logLN(".done part 1; cutoff early after " + numStatesChecked
+                                        + " states and found " + numEndPositions + " results in "
+                                        + (end - start) + "ms");
+                                checkingPaths = false;
+                                continue;
+                            }
+                        }
+
+                        //we reached a new state we havent reached before
                         if (!seenStates.contains(curState)) {
                             seenStates.add(curState);
                             statePaths.put(curState, lastPath);
-                            ByteBuffer curSave = gb.saveState();
-                            //System.out.println("map="+mem.getMap()+" x ="+mem.getX()+" y="+mem.getY()+" inputs="+actions);
-                            if (actions != 0) {
-                                for (int inp = 0x10; inp < 0x100; inp *= 2) {
-                                    if ((actions & inp) != 0) {
-                                        OverworldStateAction action = new OverworldStateAction(curState,
-                                                curSave, inp);
-                                        actionQueue.add(action);
-                                    }
-                                }
-                                if (inputsNextA == 0) {
-                                    OverworldStateAction action = new OverworldStateAction(curState, curSave, A);
-                                    actionQueue.add(action);
-                                }
-                            } else {
-                                if (minAPresses == 0 || Func.aCount(lastPath, lastPath.length()) >= minAPresses) {
-                                    // TODO: this needs to change, since theres only one goal position
-                                    endPositions.add(new PositionEnteringGrass(curSave, lastPath, mem
-                                            .getRNGState()));
-                                    numEndPositions++;
-                                    if (numEndPositions >= bbLimit) {
-                                        long end = System.currentTimeMillis();
-                                        logLN(".done part 1; cutoff early after " + numStatesChecked
-                                                + " states and found " + numEndPositions + " results in "
-                                                + (end - start) + "ms");
-                                        checkingPaths = false;
-                                    }
-                                }
+                            curSave = gb.saveState();
+
+                            //add currentstate + all four directions to the queue
+                            for (int inp = 0x10; inp < 0x100; inp *= 2) { //clever loop to do all 4 directions :)
+                                OverworldStateAction action = new OverworldStateAction(curState,
+                                        curSave, inp);
+                                actionQueue.add(action);
                             }
-                        } else if (inputsNextA < Func.inputsUntilNextA(statePaths.get(curState), maxAPresses)) {
-                            statePaths.put(curState, lastPath);
-                            if (inputsNextA == 0 && actions != 0) {
-                                ByteBuffer curSave = gb.saveState();
-                                OverworldStateAction action = new OverworldStateAction(curState, curSave, A);
-                                actionQueue.push(action);
-                            }
-                        } else {
-                            //System.out.println("discarded for dupe: "+lastPath+"/"+curState);
+                        }
+
+                        // Next position
+                        if (!actionQueue.isEmpty() && checkingPaths) {
+                            numStatesChecked++;
+                            addresses = subsLoopAddresses;
+                            OverworldStateAction actionToTake = actionQueue.pop();
+                            String inputRep = Func.inputName(actionToTake.nextInput);
+                            gb.loadState(actionToTake.savedState);
+                            wrap.injectRBInput(actionToTake.nextInput);
+                            lastInput = actionToTake.nextInput;
+                            startX = mem.getX();
+                            startY = mem.getY();
+                            lastPath = statePaths.get(actionToTake.statePos) + inputRep;
+                            // skip the joypadoverworld we just hit
+                            wrap.advanceToAddress(RedBlueAddr.joypadOverworldAddr + 1);
                         }
                     }
-
-                    // Next position
-                    if (!actionQueue.isEmpty() && checkingPaths) {
-                        numStatesChecked++;
-                        addresses = subsLoopAddresses;
-                        OverworldStateAction actionToTake = actionQueue.pop();
-                        String inputRep = Func.inputName(actionToTake.nextInput);
-                        gb.loadState(actionToTake.savedState);
-                        wrap.injectRBInput(actionToTake.nextInput);
-                        lastInput = actionToTake.nextInput;
-                        startX = mem.getX();
-                        startY = mem.getY();
-                        lastPath = statePaths.get(actionToTake.statePos) + inputRep;
-                        // skip the joypadoverworld we just hit
-                        wrap.advanceToAddress(RedBlueAddr.joypadOverworldAddr+1);
-                    } else if (checkingPaths) {
-                        long end = System.currentTimeMillis();
-                        logLN(".done part 1; checked " + numStatesChecked + " states and found "
-                                + numEndPositions + " results in " + (end - start) + "ms");
-                        checkingPaths = false;
-                    }
                 }
+
+                //
                 ps.flush();
-            }
 
-            // Encounter bruteforcing
+                // check if we found an encounter
 
-            long lastOffset = System.currentTimeMillis();
-            {
+                long lastOffset = System.currentTimeMillis();
                 Iterator<PositionEnteringGrass> grassEncs = endPositions.iterator(); // !!!
                 boolean[] threadsRunning = new boolean[numEncounterThreads];
                 while (grassEncs.hasNext()) {
@@ -343,45 +322,45 @@ public class DeathFlyBot {
                     }
                     Thread.sleep(5);
                 }
+                logLN(".done part 2 in " + (System.currentTimeMillis() - lastOffset) + "ms");
+            } catch (OutOfMemoryError ex) {
+                logLN("failed due to memory fail");
             }
+            System.gc();
+            ps.flush();
+            ps.close();
 
-            logLN(".done part 2 in " + (System.currentTimeMillis() - lastOffset) + "ms");
-        } catch (OutOfMemoryError ex) {
-            logLN("failed due to memory fail");
-        }
-        System.gc();
-        ps.flush();
-        ps.close();
 
-        long currtime = System.currentTimeMillis() / 1000L;
-
-        PrintStream statesLog = new PrintStream("logs/shrew_statestested_" + runName + "_" + currtime + ".log", "UTF-8");
-        for (String state : startPositionsCosts.keySet()) {
-            statesLog.println(state);
-            statesLog.println(startPositionsCosts.get(state));
-            for (String stateEnc : startPositionsEncs.get(state)) {
-                statesLog.println(stateEnc);
+            //TODO: redo the below logging stuff, its bad
+            long currtime = System.currentTimeMillis() / 1000L;
+            PrintStream statesLog = new PrintStream("logs/shrew_statestested_" + runName + "_" + currtime + ".log", "UTF-8");
+            for (String state : startPositionsCosts.keySet()) {
+                statesLog.println(state);
+                statesLog.println(startPositionsCosts.get(state));
+                for (String stateEnc : startPositionsEncs.get(state)) {
+                    statesLog.println(stateEnc);
+                }
+                statesLog.println("EOSTATE");
             }
-            statesLog.println("EOSTATE");
-        }
-        statesLog.flush();
-        statesLog.close();
-        logLN("dumped rng states to shrew_statestested_" + runName + "_" + currtime + ".log");
-        Files.copy(new File("logs/shrew_statestested_" + runName + "_" + currtime + ".log").toPath(), new File(gameName
-                + "_statesimport_shrew.txt").toPath(), StandardCopyOption.REPLACE_EXISTING);
+            statesLog.flush();
+            statesLog.close();
+            logLN("dumped rng states to shrew_statestested_" + runName + "_" + currtime + ".log");
+            Files.copy(new File("logs/shrew_statestested_" + runName + "_" + currtime + ".log").toPath(), new File(gameName
+                    + "_statesimport_shrew.txt").toPath(), StandardCopyOption.REPLACE_EXISTING);
 
-        PrintStream encsLog = new PrintStream("logs/shrew_encsfound_" + runName + "_" + currtime + ".log", "UTF-8");
-        for (String enc : encountersCosts.keySet()) {
-            encsLog.println(enc);
-            encsLog.println(encountersCosts.get(enc));
-        }
-        encsLog.flush();
-        encsLog.close();
-        logLN("dumped encounters to shrew_encsfound_" + runName + "_" + currtime + ".log");
-        Files.copy(new File("logs/shrew_encsfound_" + runName + "_" + currtime + ".log").toPath(), new File(gameName
-                + "_encounters_shrew.txt").toPath(), StandardCopyOption.REPLACE_EXISTING);
+            PrintStream encsLog = new PrintStream("logs/shrew_encsfound_" + runName + "_" + currtime + ".log", "UTF-8");
+            for (String enc : encountersCosts.keySet()) {
+                encsLog.println(enc);
+                encsLog.println(encountersCosts.get(enc));
+            }
+            encsLog.flush();
+            encsLog.close();
+            logLN("dumped encounters to shrew_encsfound_" + runName + "_" + currtime + ".log");
+            Files.copy(new File("logs/shrew_encsfound_" + runName + "_" + currtime + ".log").toPath(), new File(gameName
+                    + "_encounters_shrew.txt").toPath(), StandardCopyOption.REPLACE_EXISTING);
 
-        closeLog();
+            closeLog();
+        }
     }
 
     public static void makeSave(String baseName, int map, int x, int y) throws IOException {

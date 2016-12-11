@@ -40,27 +40,11 @@ public class StartingPositionManager implements Iterable<Position> {
 
 	@Override
 	public Iterator<Position> iterator() {
-		List<Position> tmpList = new ArrayList<Position>();
-		for(int y=0;y<360;y++) {
-			for(int x=0;x<340;x++) {
-				if(startingPositions[y][x]) {
-					// temp code for map
-					if(x < 40) {
-						// r22
-						tmpList.add(new Position(33, x, y-170));
-					}
-					else if(x<80) {
-						// viridian
-						tmpList.add(new Position(1, x-40, y-162));
-					}
-					else if(x < 260) {
-					    // vermillion
-					    tmpList.add(new Position(5, x-220, y-180));
-					}
-					else {
-					    // r11
-					    tmpList.add(new Position(22, x-260, y-188));
-					}
+		List<Position> tmpList = new ArrayList<>();
+		for (int y = 0; y < 360; y++) {
+			for (int x = 0; x < 340; x++) {
+				if(startingPositions[y][x]){
+					tmpList.add(new Position(DeathFlyBot.MAP_ID, x, y));
 				}
 			}
 		}
