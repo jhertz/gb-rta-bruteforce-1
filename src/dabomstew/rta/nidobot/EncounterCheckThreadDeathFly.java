@@ -11,7 +11,7 @@ import dabomstew.rta.Func;
 import dabomstew.rta.GBMemory;
 import dabomstew.rta.GBWrapper;
 
-public class EncounterCheckThreadShrew extends Thread {
+public class EncounterCheckThreadDeathFly extends Thread {
 
     public static final int A = 0x01;
     public static final int B = 0x02;
@@ -32,8 +32,8 @@ public class EncounterCheckThreadShrew extends Thread {
     private boolean[] threadsRunning;
     private int useIdx;
 
-    public EncounterCheckThreadShrew(PositionEnteringGrass peg, Gb gb, GBMemory mem, GBWrapper wrap, int bCost,
-            PrintStream ps, boolean[] threadsRunning, int useIdx) {
+    public EncounterCheckThreadDeathFly(PositionEnteringGrass peg, Gb gb, GBMemory mem, GBWrapper wrap, int bCost,
+                                        PrintStream ps, boolean[] threadsRunning, int useIdx) {
         this.peg = peg;
         this.gb = gb;
         this.mem = mem;
@@ -49,16 +49,16 @@ public class EncounterCheckThreadShrew extends Thread {
         try {
             int pathACost = Func.aCount(peg.path, peg.path.length()) * 2;
             int pathCost = bCost + pathACost;
-            if (pathCost >= ShrewBot.maxCostOfPath) {
+            if (pathCost >= DeathFlyBot.maxCostOfPath) {
                 return;
             }
-            if (!ShrewBot.startPositionsCosts.containsKey(peg.rngState)) {
-                ShrewBot.startPositionsCosts.put(peg.rngState, pathCost);
-                ShrewBot.startPositionsEncs.put(peg.rngState, new ArrayList<String>());
+            if (!DeathFlyBot.startPositionsCosts.containsKey(peg.rngState)) {
+                DeathFlyBot.startPositionsCosts.put(peg.rngState, pathCost);
+                DeathFlyBot.startPositionsEncs.put(peg.rngState, new ArrayList<String>());
                 int oogDir = DOWN;
                 ByteBuffer curState = peg.savedState;
                 gb.loadState(curState);
-                int maxSteps = Math.min((ShrewBot.maxCostOfPath - pathCost) / 17, ShrewBot.maxStepsInGrassArea);
+                int maxSteps = Math.min((DeathFlyBot.maxCostOfPath - pathCost) / 17, DeathFlyBot.maxStepsInGrassArea);
                 for (int step = 0; step < maxSteps; step++) {
                     int numSteps = step + 1;
                     if (step % 2 == 1) {
@@ -66,7 +66,7 @@ public class EncounterCheckThreadShrew extends Thread {
                     }
                     int stepsFrameCost = numSteps * 17;
 
-                    if (pathCost + stepsFrameCost >= ShrewBot.maxCostOfPath) {
+                    if (pathCost + stepsFrameCost >= DeathFlyBot.maxCostOfPath) {
                         // too long, not
                         // interested
                         break;
@@ -90,22 +90,22 @@ public class EncounterCheckThreadShrew extends Thread {
 
                         int totalEncCost = pathCost + stepsFrameCost;
                         String encRep = enc.toString();
-                        ShrewBot.startPositionsEncs.get(peg.rngState).add(
+                        DeathFlyBot.startPositionsEncs.get(peg.rngState).add(
                                 encRep + "/" + stepsFrameCost + "/" + rngAtEnc + "/" + step);
-                        synchronized (ShrewBot.encountersCosts) {
-                            if (!ShrewBot.encountersCosts.containsKey(encRep)
-                                    || ShrewBot.encountersCosts.get(encRep) > totalEncCost) {
+                        synchronized (DeathFlyBot.encountersCosts) {
+                            if (!DeathFlyBot.encountersCosts.containsKey(encRep)
+                                    || DeathFlyBot.encountersCosts.get(encRep) > totalEncCost) {
                                 ps.printf(
                                         "inputs %s step %d cost %d encounter: species %d lv%d DVs %04X rng %s encrng %s\n",
                                         peg.path, step + 1, totalEncCost, enc.species, enc.level, enc.dvs,
                                         enc.battleRNG, rngAtEnc);
-                                ShrewBot.encountersCosts.put(encRep, totalEncCost);
+                                DeathFlyBot.encountersCosts.put(encRep, totalEncCost);
                             }
                         }
 
-                        if (enc.species == 96 && enc.level == 15 && ShrewBot.godStats[enc.dvs]) {
-                            ShrewBot.logLN("POTENTIAL GOD SHREW FOUND!");
-                            ShrewBot.logF(
+                        if (enc.species == 96 && enc.level == 15 && DeathFlyBot.godStats[enc.dvs]) {
+                            DeathFlyBot.logLN("POTENTIAL GOD SHREW FOUND!");
+                            DeathFlyBot.logF(
                                     "inputs %s step %d cost %d encounter: species %d lv%d DVs %04X rng %s encrng %s\n",
                                     peg.path, step + 1, totalEncCost, enc.species, enc.level, enc.dvs, enc.battleRNG,
                                     rngAtEnc);
@@ -131,22 +131,22 @@ public class EncounterCheckThreadShrew extends Thread {
                         oogDir = UP;
                     }
                 }
-            } else if (pathCost < ShrewBot.startPositionsCosts.get(peg.rngState)) {
+            } else if (pathCost < DeathFlyBot.startPositionsCosts.get(peg.rngState)) {
                 // Don't retest, but do
                 // reconsider encounters
-                ShrewBot.startPositionsCosts.put(peg.rngState, pathCost);
-                for (String stateEnc : ShrewBot.startPositionsEncs.get(peg.rngState)) {
+                DeathFlyBot.startPositionsCosts.put(peg.rngState, pathCost);
+                for (String stateEnc : DeathFlyBot.startPositionsEncs.get(peg.rngState)) {
                     String[] encBits = stateEnc.split("\\/");
                     int cost = Integer.parseInt(encBits[4]);
                     int step = Integer.parseInt(encBits[6]);
                     String encRep = encBits[0] + "/" + encBits[1] + "/" + encBits[2] + "/" + encBits[3];
                     int totalEncCost = pathCost + cost;
-                    synchronized (ShrewBot.encountersCosts) {
-                        if (ShrewBot.encountersCosts.get(encRep) > totalEncCost) {
+                    synchronized (DeathFlyBot.encountersCosts) {
+                        if (DeathFlyBot.encountersCosts.get(encRep) > totalEncCost) {
                             ps.printf("inputs %s step %d cost %d encounter: species %s lv%s DVs %s rng %s encrng %s\n",
                                     peg.path, step + 1, totalEncCost, encBits[0], encBits[1], encBits[2], encBits[3],
                                     encBits[5]);
-                            ShrewBot.encountersCosts.put(encRep, totalEncCost);
+                            DeathFlyBot.encountersCosts.put(encRep, totalEncCost);
                         }
                     }
                 }
