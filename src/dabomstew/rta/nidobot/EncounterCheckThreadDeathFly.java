@@ -85,9 +85,13 @@ public class EncounterCheckThreadDeathFly extends Thread {
                             DeathFlyBot.encountersCosts.put(encRep, totalEncCost);
                         }
                     }
+                    // some species
+                    // caterpie 0x7B
+                    // weedle 0x70}
+
                     // check if the enc.species is a good encounter
-                    if (enc.species == 96 && enc.level == 15 && DeathFlyBot.godStats[enc.dvs]) {
-                        DeathFlyBot.logLN("POTENTIAL GOD SHREW FOUND!");
+                    if (enc.species == 0x7B || enc.species == 0x70 && enc.level == 15) {
+                        DeathFlyBot.logLN("POTENTIAL BUG ENCOUNTER FOUND!");
                         DeathFlyBot.logF(
                                 "inputs %s step %d cost %d encounter: species %d lv%d DVs %04X rng %s encrng %s\n",
                                 peg.path, 1, totalEncCost, enc.species, enc.level, enc.dvs, enc.battleRNG,

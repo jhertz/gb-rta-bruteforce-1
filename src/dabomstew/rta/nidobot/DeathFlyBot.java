@@ -19,6 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
+import java.util.Queue;
+import java.util.LinkedList;
 import java.util.concurrent.ConcurrentHashMap;
 
 import dabomstew.rta.*;
@@ -60,7 +62,7 @@ public class DeathFlyBot {
     public static final int maxCostAtStart = 999999;
     public static final int maxCostOfPath = 999999;
     public static final int maxStepsInGrassArea = 20;
-    public static final int numEncounterThreads = 3;
+    public static final int numEncounterThreads = 1;
 
     // viridian forrest
     public static final byte MAP_ID = 0x33; //D35E
@@ -180,6 +182,7 @@ public class DeathFlyBot {
                 }
 
 
+
                 Gb gb = gbs[0];
                 GBMemory mem = mems[0];
                 GBWrapper wrap = wraps[0];
@@ -196,7 +199,7 @@ public class DeathFlyBot {
                 boolean checkingPaths = true;
                 Set<String> seenStates = new HashSet<String>();
                 Map<String, String> statePaths = new HashMap<String, String>();
-                Stack<OverworldStateAction> actionQueue = new Stack<OverworldStateAction>();
+                Queue<OverworldStateAction> actionQueue = new LinkedList<OverworldStateAction>();
 
                 int numEndPositions = 0, numStatesChecked = 0;
                 String lastPath = "";
@@ -210,6 +213,8 @@ public class DeathFlyBot {
 
                 while (checkingPaths) {
 
+                    //System.out.println("entering main loop, lets print some locals");
+                    //System.out.println("mem.getX:" + mem.getX() + " mem.getY:" + mem.getY() + " startX:" + startX + " startY:" + startY);
                     //initial setup
                     int result = wrap.advanceWithJoypadToAddress(lastInput, addresses); //we might be double-stepping here
                     String curState = mem.getUniqid();
@@ -226,18 +231,24 @@ public class DeathFlyBot {
                             System.out.println("discarded for not joypadoverworld");
                         }
                     }
+
+                    /** im not sure WHY i need to get rid of this, but if it dont, it doesnt work at all
                     if (!garbage && lastInput != 0 && lastInput != A) {
                         if (mem.getX() == startX && mem.getY() == startY) {
                             garbage = true;
                             System.out.println("discarded for not moving");
                         }
-                    }
+                    } **/
+
+
                     if (!garbage) { //this isnt a garbage frame, do stuff
 
-                        // does the path get to the goal?
+                        //System.out.println("passed garbage check");
+
+                        // are we at the goal?
                         if (goalPosition.x == mem.getX() && goalPosition.y == mem.getY()) { //we're at the deathfly tile!
-                            endPositions.add(new PositionEnteringGrass(curSave, lastPath, mem
-                                    .getRNGState()));
+                            System.out.println("path to goal found");
+                            endPositions.add(new PositionEnteringGrass(curSave, lastPath, mem.getRNGState()));
                             numEndPositions++;
                             if (numEndPositions >= bbLimit) { //we're done finding paths
                                 long end = System.currentTimeMillis();
@@ -249,8 +260,9 @@ public class DeathFlyBot {
                             }
                         }
 
-                        //we reached a new state we havent reached before
+                        //have we reached a new state we havent reached before
                         if (!seenStates.contains(curState)) {
+                            //System.out.println("in a new state, adding to queue");
                             seenStates.add(curState);
                             statePaths.put(curState, lastPath);
                             curSave = gb.saveState();
@@ -263,13 +275,15 @@ public class DeathFlyBot {
                             }
                         }
 
-                        // Next position
+                        // pop a state off the queue and try it
                         if (!actionQueue.isEmpty() && checkingPaths) {
+                            //System.out.println("trying a new idea from the actionQueue");
                             numStatesChecked++;
                             addresses = subsLoopAddresses;
-                            OverworldStateAction actionToTake = actionQueue.pop();
+                            OverworldStateAction actionToTake = actionQueue.remove();
                             String inputRep = Func.inputName(actionToTake.nextInput);
                             gb.loadState(actionToTake.savedState);
+                            //System.out.println("about to take action:" + inputRep + " " + actionToTake.nextInput);
                             wrap.injectRBInput(actionToTake.nextInput);
                             lastInput = actionToTake.nextInput;
                             startX = mem.getX();
@@ -278,8 +292,12 @@ public class DeathFlyBot {
                             // skip the joypadoverworld we just hit
                             wrap.advanceToAddress(RedBlueAddr.joypadOverworldAddr + 1);
                         }
+
+
                     }
                 }
+
+
 
                 //
                 ps.flush();
@@ -287,7 +305,7 @@ public class DeathFlyBot {
                 // check if we found an encounter
 
                 long lastOffset = System.currentTimeMillis();
-                Iterator<PositionEnteringGrass> grassEncs = endPositions.iterator(); // !!!
+                Iterator<PositionEnteringGrass> grassEncs = endPositions.iterator(); //
                 boolean[] threadsRunning = new boolean[numEncounterThreads];
                 while (grassEncs.hasNext()) {
 
