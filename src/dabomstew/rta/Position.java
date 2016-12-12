@@ -12,4 +12,9 @@ public class Position {
 	public int x;
 	public int y;
 
+	@Override
+	public String toString(){
+		return "map " + map + " x: " + x + " y:" + y;
+	}
+
 }
