@@ -28,34 +28,42 @@ public class PermissibleActionsHandler {
 
     //         spm.exclude(0x18, 0x04); // sign
     // this is the tile right behind the DF trainer
-    public static final byte DEATHFLY_Y = 0x13; //D361
-    public static final byte DEATHFLY_X = 0x01; //D362
+    public static final byte DEATHFLY_Y = 19; //D361
+    public static final byte DEATHFLY_X = 1; //D362
 
     public static List<Integer> whereDoWeGo(int x, int y) {
-        // use logic here to make sure we don't wallbonk
 
         List<Integer> starting = new LinkedList<>();
 
-        if(x == 0x14 && y == 0x01){ //walk into the deathfly
+        System.out.println("our x:" + x + " y:" + y);
+        if(x == 20 && y == 1){ //walk into the deathfly
+            System.out.println("adding up, since were about to hit the goal");
             starting.add(UP);
             return starting;
         }
 
-        if(y < 0x17){ //dont walk further down
+        //don't trainer bonk
+        if( x != 20 && y != 2) {
+            System.out.println("adding up");
+            starting.add(UP);
+        }
+
+        if(y < 25){ //dont walk further down
+            System.out.println("adding down");
             starting.add(DOWN);
         }
 
-        if(x > 0x01){ // dont wallbonk
+        if(x > 1){ // dont wallbonk
+            System.out.println("adding left");
             starting.add(LEFT);
         }
 
-        if(x < 0x02){
+        if(x < 2){
+            System.out.println("adding right");
             starting.add(RIGHT);
         }
 
-        if(y < 0x13){
-            starting.add(UP);
-        }
+
 
         return starting;
     }

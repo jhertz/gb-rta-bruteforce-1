@@ -9,7 +9,7 @@ public class GBWrapper {
 	private GBMemory mem;
 	private Gb gb;
 
-	public static final boolean STALL = false;
+	public static final boolean STALL = true;
 	public GBWrapper(Gb gb, GBMemory mem) {
 		this.mem = mem;
 		this.gb = gb;

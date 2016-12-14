@@ -162,6 +162,7 @@ public class DeathFlyBot {
 
         for (Position pos : spm) {
             try {
+                Gb.loadGambatte(numEncounterThreads); // maybe this will stop us segfaulting?
                 int baseCost = 0;
                 ps.printf("Starting position: map %d x %d y %d cost %d\n", pos.map, pos.x, pos.y, baseCost);
                 logF("testing starting position x=%d y=%d map=%d cost=%d\n", pos.x, pos.y, pos.map, baseCost);
@@ -261,6 +262,7 @@ public class DeathFlyBot {
                             // skip the joypadoverworld we just hit
                             wrap.advanceToAddress(RedBlueAddr.joypadOverworldAddr + 1);
                         } else{
+                            System.out.println("we're out of ideas, this is the end of this starting position");
                             checkingPaths = false; //we're out of ideas!
                         }
 
@@ -300,6 +302,7 @@ public class DeathFlyBot {
                             for (Integer inp : whereWeGo) {
                                 OverworldStateAction action = new OverworldStateAction(curState,
                                         curSave, inp);
+                                System.out.println("adding action: " + inp);
                                 actionQueue.add(action);
                             }
                         }
