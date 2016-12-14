@@ -162,7 +162,7 @@ public class DeathFlyBot {
 
         for (Position pos : spm) {
             try {
-                Gb.loadGambatte(numEncounterThreads); // maybe this will stop us segfaulting?
+               // Gb.loadGambatte(numEncounterThreads); // maybe this will stop us segfaulting?
                 int baseCost = 0;
                 ps.printf("Starting position: map %d x %d y %d cost %d\n", pos.map, pos.x, pos.y, baseCost);
                 logF("testing starting position x=%d y=%d map=%d cost=%d\n", pos.x, pos.y, pos.map, baseCost);
@@ -206,7 +206,7 @@ public class DeathFlyBot {
                 int numEndPositions = 0, numStatesChecked = 0;
                 String lastPath = "";
                 long start = System.currentTimeMillis();
-                int[] addresses = firstLoopAddresses;
+                int[] addresses = subsLoopAddresses;
                 int lastInput = 0;
 
                 //main loop
@@ -214,10 +214,7 @@ public class DeathFlyBot {
 
                 while (checkingPaths) {
 
-                    /** if(){
 
-                        continue;
-                    } **/
                     //System.out.println("entering main loop, lets print some locals");
                     System.out.println("where we are: mem.getX:" + mem.getX() + " mem.getY:" + mem.getY());
                    // Thread.sleep(1000);
@@ -232,6 +229,9 @@ public class DeathFlyBot {
 
                     if(result == RedBlueAddr.newBattleAddr && !atGoal(mem)){
                         System.out.println("found an encounter early :(");
+                        for(int i=0; i < 60; i++)
+                            wrap.advanceFrame();
+                        Thread.sleep(5000);
                         garbage = true;
                     }
 
@@ -251,7 +251,6 @@ public class DeathFlyBot {
                         if (!actionQueue.isEmpty() && checkingPaths) {
                             System.out.println("we ended up in a garbage state, trying something new from the actionQueue");
                             numStatesChecked++;
-                            addresses = subsLoopAddresses;
                             OverworldStateAction actionToTake = actionQueue.pop();
                             String inputRep = Func.inputName(actionToTake.nextInput);
                             gb.loadState(actionToTake.savedState);
