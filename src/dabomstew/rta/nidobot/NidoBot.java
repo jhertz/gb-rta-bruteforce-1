@@ -311,8 +311,8 @@ public class NidoBot {
                                 }
                             }
                             if (!garbage) {
-                                int actions = PermissibleActionsHandler.actionsGoingToGrass(mem.getMap(), mem.getX(),
-                                        mem.getY());
+                                int actions = 0;//PermissibleActionsHandler.actionsGoingToGrass(mem.getMap(), mem.getX(),
+                                       // mem.getY());
                                 int inputsNextA = Func.inputsUntilNextA(lastPath, maxAPresses);
                                 if (!seenStates.contains(curState)) {
                                     seenStates.add(curState);

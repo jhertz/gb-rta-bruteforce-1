@@ -17,4 +17,17 @@ public class Position {
 		return "map " + map + " x: " + x + " y:" + y;
 	}
 
+	@Override
+	public boolean equals(Object o){
+		if(o instanceof Position) {
+			Position pos = (Position) o;
+			return ((this.x == pos.x) && (this.y == pos.y) && (this.map == pos.map));
+		}
+		return false;
+	}
+
+	@Override
+	public int hashCode() {
+		return ("" + map + "/" + x + "/" + y).hashCode();
+	}
 }

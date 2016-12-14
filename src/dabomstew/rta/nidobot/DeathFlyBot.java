@@ -133,12 +133,12 @@ public class DeathFlyBot {
         //top right: 0x17, 0x06
         //bottom right 0x19, 0x06
 
-        spm.includeRect(0x17, 0x01, 0x19, 0x06); // main rectangle of save save positions
+       // spm.includeRect(0x17, 0x01, 0x19, 0x06); // main rectangle of save save positions
+        spm.includeRect(0x01, 0x17, 0x02, 0x19); // lets do just the 4 tiles under the encounter
 
-        // TBD: if these^ arent enough positions, there are also some other ones, but the paths are trickier to not load the item
-        // if we can just use the above rect, that should be ezpz
 
-        spm.exclude(0x18, 0x04); // sign
+
+        //spm.exclude(0x18, 0x04); // sign
 
         Position goalPosition = new Position(MAP_ID, DEATHFLY_X, DEATHFLY_Y);
 
@@ -155,10 +155,6 @@ public class DeathFlyBot {
         }
         PrintStream ps = new PrintStream(logFilename, "UTF-8");
 
-        //TODO: test printing out all startingpositions
-        for (Position pos : spm) {
-            System.out.println("pos:" + pos);
-        }
 
         for (Position pos : spm) {
             try {
@@ -199,7 +195,8 @@ public class DeathFlyBot {
                 boolean checkingPaths = true;
                 Set<String> seenStates = new HashSet<String>();
                 Map<String, String> statePaths = new HashMap<String, String>();
-                Queue<OverworldStateAction> actionQueue = new LinkedList<OverworldStateAction>();
+                Stack<OverworldStateAction> actionQueue = new Stack<OverworldStateAction>();
+                HashSet<Position> seenPositions = new HashSet<>();
 
                 int numEndPositions = 0, numStatesChecked = 0;
                 String lastPath = "";
@@ -261,14 +258,16 @@ public class DeathFlyBot {
                         }
 
                         //have we reached a new state we havent reached before
-                        if (!seenStates.contains(curState)) {
+                        if (!seenStates.contains(curState) && !seenPositions.contains(new Position(MAP_ID, mem.getX(), mem.getY()))) {
                             //System.out.println("in a new state, adding to queue");
                             seenStates.add(curState);
                             statePaths.put(curState, lastPath);
                             curSave = gb.saveState();
 
                             //add currentstate + all four directions to the queue
-                            for (int inp = 0x10; inp < 0x100; inp *= 2) { //clever loop to do all 4 directions :)
+                            List<Integer> whereWeGo = PermissibleActionsHandler.whereDoWeGo(mem.getX(), mem.getY());
+
+                            for (Integer inp : whereWeGo) { //clever loop to do all 4 directions :)
                                 OverworldStateAction action = new OverworldStateAction(curState,
                                         curSave, inp);
                                 actionQueue.add(action);
@@ -280,7 +279,7 @@ public class DeathFlyBot {
                             //System.out.println("trying a new idea from the actionQueue");
                             numStatesChecked++;
                             addresses = subsLoopAddresses;
-                            OverworldStateAction actionToTake = actionQueue.remove();
+                            OverworldStateAction actionToTake = actionQueue.pop();
                             String inputRep = Func.inputName(actionToTake.nextInput);
                             gb.loadState(actionToTake.savedState);
                             //System.out.println("about to take action:" + inputRep + " " + actionToTake.nextInput);
