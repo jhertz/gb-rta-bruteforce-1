@@ -110,7 +110,7 @@ public class DeathFlyBot {
 
         // Init gambatte with 1 screen
         Gb.loadGambatte(numEncounterThreads);
-
+        System.out.println("loaded gambatte");
         // config
 
         runName = "nopalette_" + gameName + "_hop_" + hops;
@@ -136,6 +136,10 @@ public class DeathFlyBot {
        // spm.includeRect(0x17, 0x01, 0x19, 0x06); // main rectangle of save save positions
         spm.includeRect(0x01, 0x17, 0x02, 0x19); // lets do just the 4 tiles under the encounter
 
+
+       // for(Position pos : spm){
+       //     System.out.println("startinpos:" + pos);
+       // }
 
 
         //spm.exclude(0x18, 0x04); // sign
@@ -211,7 +215,7 @@ public class DeathFlyBot {
                 while (checkingPaths) {
 
                     //System.out.println("entering main loop, lets print some locals");
-                    //System.out.println("mem.getX:" + mem.getX() + " mem.getY:" + mem.getY() + " startX:" + startX + " startY:" + startY);
+                    System.out.println("where we are: mem.getX:" + mem.getX() + " mem.getY:" + mem.getY());
                     //initial setup
                     int result = wrap.advanceWithJoypadToAddress(lastInput, addresses); //we might be double-stepping here
                     String curState = mem.getUniqid();
@@ -240,7 +244,7 @@ public class DeathFlyBot {
 
                     if (!garbage) { //this isnt a garbage frame, do stuff
 
-                        //System.out.println("passed garbage check");
+                        System.out.println("passed garbage check");
 
                         // are we at the goal?
                         if (goalPosition.x == mem.getX() && goalPosition.y == mem.getY()) { //we're at the deathfly tile!
@@ -259,7 +263,7 @@ public class DeathFlyBot {
 
                         //have we reached a new state we havent reached before
                         if (!seenStates.contains(curState) && !seenPositions.contains(new Position(MAP_ID, mem.getX(), mem.getY()))) {
-                            //System.out.println("in a new state, adding to queue");
+                            System.out.println("in a new state, adding to queue");
                             seenStates.add(curState);
                             statePaths.put(curState, lastPath);
                             curSave = gb.saveState();
@@ -267,7 +271,7 @@ public class DeathFlyBot {
                             //add currentstate + all four directions to the queue
                             List<Integer> whereWeGo = PermissibleActionsHandler.whereDoWeGo(mem.getX(), mem.getY());
 
-                            for (Integer inp : whereWeGo) { //clever loop to do all 4 directions :)
+                            for (Integer inp : whereWeGo) {
                                 OverworldStateAction action = new OverworldStateAction(curState,
                                         curSave, inp);
                                 actionQueue.add(action);
@@ -276,13 +280,13 @@ public class DeathFlyBot {
 
                         // pop a state off the queue and try it
                         if (!actionQueue.isEmpty() && checkingPaths) {
-                            //System.out.println("trying a new idea from the actionQueue");
+                            System.out.println("trying a new idea from the actionQueue");
                             numStatesChecked++;
                             addresses = subsLoopAddresses;
                             OverworldStateAction actionToTake = actionQueue.pop();
                             String inputRep = Func.inputName(actionToTake.nextInput);
                             gb.loadState(actionToTake.savedState);
-                            //System.out.println("about to take action:" + inputRep + " " + actionToTake.nextInput);
+                            System.out.println("about to take action:" + inputRep + " " + actionToTake.nextInput);
                             wrap.injectRBInput(actionToTake.nextInput);
                             lastInput = actionToTake.nextInput;
                             startX = mem.getX();

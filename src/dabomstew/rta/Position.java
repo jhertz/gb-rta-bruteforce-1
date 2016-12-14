@@ -14,7 +14,7 @@ public class Position {
 
 	@Override
 	public String toString(){
-		return "map " + map + " x: " + x + " y:" + y;
+		return "map: " + map + " x: " + x + " y:" + y;
 	}
 
 	@Override
