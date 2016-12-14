@@ -214,8 +214,10 @@ public class DeathFlyBot {
 
                 while (checkingPaths) {
 
+
                     //System.out.println("entering main loop, lets print some locals");
                     System.out.println("where we are: mem.getX:" + mem.getX() + " mem.getY:" + mem.getY());
+                   // Thread.sleep(1000);
                     //initial setup
                     int result = wrap.advanceWithJoypadToAddress(lastInput, addresses); //we might be double-stepping here
                     String curState = mem.getUniqid();
