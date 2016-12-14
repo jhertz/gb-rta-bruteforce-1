@@ -8,7 +8,8 @@ public class GBWrapper {
 	
 	private GBMemory mem;
 	private Gb gb;
-	
+
+	public static final boolean STALL = false;
 	public GBWrapper(Gb gb, GBMemory mem) {
 		this.mem = mem;
 		this.gb = gb;
@@ -26,9 +27,12 @@ public class GBWrapper {
 				result = gb.step(0, addresses);
 			}
 			//runs++;
-			try {
-				Thread.sleep(5);
-			} catch (InterruptedException e) {
+
+			if(STALL) {
+				try {
+					Thread.sleep(5);
+				} catch (InterruptedException e) {
+				}
 			}
 		}
 		mem.setStale();
@@ -45,9 +49,12 @@ public class GBWrapper {
             else {
                 result = gb.step(joypad, addresses);
             }
-            try {
-                Thread.sleep(5);
-            } catch (InterruptedException e) {            }
+            if(STALL) {
+				try {
+					Thread.sleep(5);
+				} catch (InterruptedException e) {
+				}
+			}
         }
         mem.setStale();
         return result;

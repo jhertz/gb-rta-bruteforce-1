@@ -121,7 +121,7 @@ public class DeathFlyBot {
 
 
         int[] firstLoopAddresses = {RedBlueAddr.joypadOverworldAddr};
-        int[] subsLoopAddresses = {RedBlueAddr.joypadOverworldAddr, RedBlueAddr.printLetterDelayAddr};
+        int[] subsLoopAddresses = {RedBlueAddr.joypadOverworldAddr, RedBlueAddr.printLetterDelayAddr, RedBlueAddr.newBattleAddr};
 
         // setup starting positions
         StartingPositionManager spm = new StartingPositionManager();
@@ -206,7 +206,6 @@ public class DeathFlyBot {
                 String lastPath = "";
                 long start = System.currentTimeMillis();
                 int[] addresses = firstLoopAddresses;
-                int startX = -1, startY = -1;
                 int lastInput = 0;
 
                 //main loop
@@ -214,16 +213,28 @@ public class DeathFlyBot {
 
                 while (checkingPaths) {
 
+                    /** if(){
 
+                        continue;
+                    } **/
                     //System.out.println("entering main loop, lets print some locals");
                     System.out.println("where we are: mem.getX:" + mem.getX() + " mem.getY:" + mem.getY());
                    // Thread.sleep(1000);
-                    //initial setup
-                    int result = wrap.advanceWithJoypadToAddress(lastInput, addresses); //we might be double-stepping here
+
+                    int result = wrap.advanceWithJoypadToAddress(lastInput, addresses);
+
                     String curState = mem.getUniqid();
 
                     //check for garbage frames
                     boolean garbage = mem.getTurnFrameStatus() != 0 || result != RedBlueAddr.joypadOverworldAddr;
+
+
+                    if(result == RedBlueAddr.newBattleAddr && !atGoal(mem)){
+                        System.out.println("found an encounter early :(");
+                        garbage = true;
+                    }
+
+
                     if (garbage) {
                         if (mem.getTurnFrameStatus() != 0) {
                             System.out.println("discarded for TFS != 0");
@@ -231,25 +242,38 @@ public class DeathFlyBot {
                                 System.out.println("Uhhhhh");
                             }
                         } else {
-                            System.out.println("discarded for not joypadoverworld");
+                            System.out.println("discarded for not joypadoverworld, state was:" + result);
                         }
+
+
+                        // okay, so we need to actually advance things now
+                        if (!actionQueue.isEmpty() && checkingPaths) {
+                            System.out.println("we ended up in a garbage state, trying something new from the actionQueue");
+                            numStatesChecked++;
+                            addresses = subsLoopAddresses;
+                            OverworldStateAction actionToTake = actionQueue.pop();
+                            String inputRep = Func.inputName(actionToTake.nextInput);
+                            gb.loadState(actionToTake.savedState);
+                            System.out.println("about to take action:" + inputRep + " " + actionToTake.nextInput);
+                            wrap.injectRBInput(actionToTake.nextInput);
+                            lastInput = actionToTake.nextInput;
+                            lastPath = statePaths.get(actionToTake.statePos) + inputRep;
+                            // skip the joypadoverworld we just hit
+                            wrap.advanceToAddress(RedBlueAddr.joypadOverworldAddr + 1);
+                        } else{
+                            checkingPaths = false; //we're out of ideas!
+                        }
+
+                        continue;
+
                     }
-
-                    /** im not sure WHY i need to get rid of this, but if it dont, it doesnt work at all
-                    if (!garbage && lastInput != 0 && lastInput != A) {
-                        if (mem.getX() == startX && mem.getY() == startY) {
-                            garbage = true;
-                            System.out.println("discarded for not moving");
-                        }
-                    } **/
-
 
                     if (!garbage) { //this isnt a garbage frame, do stuff
 
                         System.out.println("passed garbage check");
 
                         // are we at the goal?
-                        if (goalPosition.x == mem.getX() && goalPosition.y == mem.getY()) { //we're at the deathfly tile!
+                        if (atGoal(mem)) { //we're at the deathfly tile!
                             System.out.println("path to goal found");
                             endPositions.add(new PositionEnteringGrass(curSave, lastPath, mem.getRNGState()));
                             numEndPositions++;
@@ -291,8 +315,6 @@ public class DeathFlyBot {
                             System.out.println("about to take action:" + inputRep + " " + actionToTake.nextInput);
                             wrap.injectRBInput(actionToTake.nextInput);
                             lastInput = actionToTake.nextInput;
-                            startX = mem.getX();
-                            startY = mem.getY();
                             lastPath = statePaths.get(actionToTake.statePos) + inputRep;
                             // skip the joypadoverworld we just hit
                             wrap.advanceToAddress(RedBlueAddr.joypadOverworldAddr + 1);
@@ -384,6 +406,10 @@ public class DeathFlyBot {
 
             closeLog();
         }
+    }
+
+    private static boolean atGoal(GBMemory mem) {
+        return DEATHFLY_X == mem.getX() && DEATHFLY_Y == mem.getY();
     }
 
     public static void makeSave(String baseName, int map, int x, int y) throws IOException {
