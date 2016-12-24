@@ -3,9 +3,9 @@ gb-rta-bruteforce
 
 #### jhertz modifications/notes
 
-in order to get this to build, you need to use gcc4.2
-make sure its in your path
-the sconstruct file was changed in order to point to my Java8, and to my gcc4.2. you will need to adjust this.
+in order to get this to build, you need to use gcc4.2.
+
+the SConstruct file is changed in order to point to my Java8, and to my gcc4.2. you will need to adjust them. luckily its just a nice python script and is a hell of a lot easier to change than a cryptic autogen'd makefile.
 
 for dependencies, you need: java8, scons, sdl (not sdl2), gcc4.2, and ant. you can install them all with homebrew. 
 

@@ -232,8 +232,8 @@ void GambatteSdl::step() {
 		unsigned emusamples = SAMPLES_PER_FRAME - overflowSamples;
 		if (gambatte.runFor(vbuf.pixels, vbuf.pitch,
 				reinterpret_cast<gambatte::uint_least32_t*>(inBuf.get()), emusamples) >= 0) {
-			//sdl.blitter.draw();
-			//sdl.blitter.present();
+			sdl.blitter.draw();
+			sdl.blitter.present(); // DRAGON: comment these two lines out to get a headless bot
 		}
 
 		overflowSamples += emusamples;
