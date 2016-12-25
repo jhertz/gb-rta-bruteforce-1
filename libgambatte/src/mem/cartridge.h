@@ -42,6 +42,9 @@ public:
 
 class Cartridge {
 public:
+	Cartridge() 
+	: savestateBuf (NULL)
+	{}
 	struct AddrData {
 		unsigned long addr;
 		unsigned char data;

@@ -673,7 +673,13 @@ static bool hasBattery(const unsigned char headerByte0x147) {
 void Cartridge::loadSavedata() {
 	const std::string &sbp = saveBasePath();
 
-	if (hasBattery(memptrs.romdata()[0x147])) {
+	if(memptrs.romdata() == NULL){
+		return;
+	}
+
+	const unsigned char header_byte = memptrs.romdata()[0x147];
+
+	if (hasBattery(header_byte)) {
 		if (savestateBuf != NULL) {
 			memcpy(memptrs.rambankdata(), savestateBuf, memptrs.rambankdataend() - memptrs.rambankdata());
 		}
