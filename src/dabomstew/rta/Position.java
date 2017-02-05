@@ -8,14 +8,12 @@ public class Position {
 		this.x = x;
 		this.y = y;
 	}
+
+
 	public int map;
 	public int x;
 	public int y;
 
-	@Override
-	public String toString(){
-		return "map: " + map + " x: " + x + " y:" + y;
-	}
 
 	@Override
 	public boolean equals(Object o){
@@ -28,6 +26,11 @@ public class Position {
 
 	@Override
 	public int hashCode() {
-		return ("" + map + "/" + x + "/" + y).hashCode();
+		return toString().hashCode();
 	}
+
+    @Override
+	public String toString() {
+        return "[" + map + "#" + x + "," + y + "]";
+    }
 }

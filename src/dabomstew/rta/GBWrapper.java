@@ -26,10 +26,12 @@ public class GBWrapper {
 				result = gb.step(0, addresses);
 			}
 			//runs++;
+
 			try {
 				Thread.sleep(5);
 			} catch (InterruptedException e) {
 			}
+
 		}
 		mem.setStale();
 		//System.out.printf("returned after %d runs with result %04X\n", runs, result);
@@ -54,6 +56,7 @@ public class GBWrapper {
 		return result;
 	}
 
+
 	public void testSpeed() {
 		long start = System.currentTimeMillis();
 		for(int i=0;i<1000000;i++) {
@@ -73,6 +76,15 @@ public class GBWrapper {
 
 	public void injectRBInput(int input) {
 		writeMemory(0xFFF8, input);
+	}
+
+
+	public void injectCrysInput(int input) {
+		writeMemory(0xFFA4, input);
+	}
+
+	public void injectGoldInput(int input) {
+		writeMemory(0xFFA6, input);
 	}
 
 	public void writeMemory(int address, int value) {
