@@ -1,21 +1,21 @@
-//
-//   Copyright (C) 2007-2010 by sinamas <sinamas at users.sourceforge.net>
-//
-//   This program is free software; you can redistribute it and/or modify
-//   it under the terms of the GNU General Public License version 2 as
-//   published by the Free Software Foundation.
-//
-//   This program is distributed in the hope that it will be useful,
-//   but WITHOUT ANY WARRANTY; without even the implied warranty of
-//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//   GNU General Public License version 2 for more details.
-//
-//   You should have received a copy of the GNU General Public License
-//   version 2 along with this program; if not, write to the
-//   Free Software Foundation, Inc.,
-//   51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA.
-//
-
+/***************************************************************************
+ *   Copyright (C) 2007-2010 by Sindre Aamås                               *
+ *   sinamas@users.sourceforge.net                                         *
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License version 2 as     *
+ *   published by the Free Software Foundation.                            *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License version 2 for more details.                *
+ *                                                                         *
+ *   You should have received a copy of the GNU General Public License     *
+ *   version 2 along with this program; if not, write to the               *
+ *   Free Software Foundation, Inc.,                                       *
+ *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+ ***************************************************************************/
 #include "cartridge.h"
 #include "file/file.h"
 #include "../savestate.h"
@@ -27,7 +27,7 @@ namespace gambatte {
 
 namespace {
 
-static unsigned toMulti64Rombank(unsigned rombank) {
+static unsigned toMulti64Rombank(const unsigned rombank) {
 	return (rombank >> 1 & 0x30) | (rombank & 0xF);
 }
 
@@ -36,76 +36,85 @@ public:
 	virtual bool isAddressWithinAreaRombankCanBeMappedTo(unsigned addr, unsigned bank) const {
 		return (addr< 0x4000) == (bank == 0);
 	}
-        void loadOrSave(loadsave&) {}
+	void loadOrSave(loadsave&) {}
 };
 
 class Mbc0 : public DefaultMbc {
+	MemPtrs &memptrs;
+	bool enableRam;
+
 public:
 	explicit Mbc0(MemPtrs &memptrs)
-	: memptrs_(memptrs)
-	, enableRam_(false)
+	: memptrs(memptrs),
+	  enableRam(false)
 	{
 	}
 
-	virtual void romWrite(unsigned const p, unsigned const data) {
-		if (p < 0x2000) {
-			enableRam_ = (data & 0xF) == 0xA;
-			memptrs_.setRambank(enableRam_ ? MemPtrs::read_en | MemPtrs::write_en : 0, 0);
+	virtual void romWrite(const unsigned P, const unsigned data) {
+		if (P < 0x2000) {
+			enableRam = (data & 0xF) == 0xA;
+			memptrs.setRambank(enableRam ? MemPtrs::READ_EN | MemPtrs::WRITE_EN : 0, 0);
 		}
 	}
 
 	virtual void saveState(SaveState::Mem &ss) const {
-		ss.enableRam = enableRam_;
+		ss.enableRam = enableRam;
 	}
 
-	virtual void loadState(SaveState::Mem const &ss) {
-		enableRam_ = ss.enableRam;
-		memptrs_.setRambank(enableRam_ ? MemPtrs::read_en | MemPtrs::write_en : 0, 0);
+	virtual void loadState(const SaveState::Mem &ss) {
+		enableRam = ss.enableRam;
+		memptrs.setRambank(enableRam ? MemPtrs::READ_EN | MemPtrs::WRITE_EN : 0, 0);
 	}
 	void loadOrSave(loadsave& state) {
-		state(enableRam_);
+		state(enableRam);
 	}
-  
-private:
-	MemPtrs &memptrs_;
-	bool enableRam_;
 };
 
-static inline unsigned rambanks(MemPtrs const &memptrs) {
-	return std::size_t(memptrs.rambankdataend() - memptrs.rambankdata()) / 0x2000;
+static inline unsigned rambanks(const MemPtrs &memptrs) {
+	return static_cast<std::size_t>(memptrs.rambankdataend() - memptrs.rambankdata()) / 0x2000;
 }
 
-static inline unsigned rombanks(MemPtrs const &memptrs) {
-	return std::size_t(memptrs.romdataend()     - memptrs.romdata()    ) / 0x4000;
+static inline unsigned rombanks(const MemPtrs &memptrs) {
+	return static_cast<std::size_t>(memptrs.romdataend()     - memptrs.romdata()    ) / 0x4000;
 }
 
 class Mbc1 : public DefaultMbc {
+	MemPtrs &memptrs;
+	unsigned char rombank;
+	unsigned char rambank;
+	bool enableRam;
+	bool rambankMode;
+
+	static unsigned adjustedRombank(unsigned bank) { return bank & 0x1F ? bank : bank | 1; }
+	void setRambank() const { memptrs.setRambank(enableRam ? MemPtrs::READ_EN | MemPtrs::WRITE_EN : 0, rambank & (rambanks(memptrs) - 1)); }
+	void setRombank() const { memptrs.setRombank(adjustedRombank(rombank & (rombanks(memptrs) - 1))); }
+
 public:
 	explicit Mbc1(MemPtrs &memptrs)
-	: memptrs_(memptrs)
-	, rombank_(1)
-	, rambank_(0)
-	, enableRam_(false)
-	, rambankMode_(false)
+	: memptrs(memptrs),
+	  rombank(1),
+	  rambank(0),
+	  enableRam(false),
+	  rambankMode(false)
 	{
 	}
 
-	virtual void romWrite(unsigned const p, unsigned const data) {
-		switch (p >> 13 & 3) {
+	virtual void romWrite(const unsigned P, const unsigned data) {
+		switch (P >> 13 & 3) {
 		case 0:
-			enableRam_ = (data & 0xF) == 0xA;
+			enableRam = (data & 0xF) == 0xA;
 			setRambank();
 			break;
 		case 1:
-			rombank_ = rambankMode_ ? data & 0x1F : (rombank_ & 0x60) | (data & 0x1F);
+			rombank = rambankMode ? data & 0x1F : (rombank & 0x60) | (data & 0x1F);
 			setRombank();
 			break;
 		case 2:
-			if (rambankMode_) {
-				rambank_ = data & 3;
+			if (rambankMode) {
+				rambank = data & 3;
 				setRambank();
 			} else {
-				rombank_ = (data << 5 & 0x60) | (rombank_ & 0x1F);
+				rombank = (data << 5 & 0x60) | (rombank & 0x1F);
 				setRombank();
 			}
 
@@ -113,284 +122,274 @@ public:
 		case 3:
 			// Pretty sure this should take effect immediately, but I have a policy not to change old behavior
 			// unless I have something (eg. a verified test or a game) that justifies it.
-			rambankMode_ = data & 1;
+			rambankMode = data & 1;
 			break;
 		}
 	}
 
 	virtual void saveState(SaveState::Mem &ss) const {
-		ss.rombank = rombank_;
-		ss.rambank = rambank_;
-		ss.enableRam = enableRam_;
-		ss.rambankMode = rambankMode_;
+		ss.rombank = rombank;
+		ss.rambank = rambank;
+		ss.enableRam = enableRam;
+		ss.rambankMode = rambankMode;
 	}
 
-	virtual void loadState(SaveState::Mem const &ss) {
-		rombank_ = ss.rombank;
-		rambank_ = ss.rambank;
-		enableRam_ = ss.enableRam;
-		rambankMode_ = ss.rambankMode;
+	virtual void loadState(const SaveState::Mem &ss) {
+		rombank = ss.rombank;
+		rambank = ss.rambank;
+		enableRam = ss.enableRam;
+		rambankMode = ss.rambankMode;
 		setRambank();
 		setRombank();
 	}
 
-  	void loadOrSave(loadsave& state) {
-		state(rombank_);
-		state(rambank_);
-		state(enableRam_);
-		state(rambankMode_);
-	}
-private:
-	MemPtrs &memptrs_;
-	unsigned char rombank_;
-	unsigned char rambank_;
-	bool enableRam_;
-	bool rambankMode_;
-
-	static unsigned adjustedRombank(unsigned bank) { return bank & 0x1F ? bank : bank | 1; }
-
-	void setRambank() const {
-		memptrs_.setRambank(enableRam_ ? MemPtrs::read_en | MemPtrs::write_en : 0,
-		                    rambank_ & (rambanks(memptrs_) - 1));
+	void loadOrSave(loadsave& state) {
+		state(rombank);
+		state(rambank);
+		state(enableRam);
+		state(rambankMode);
 	}
 
-	void setRombank() const { memptrs_.setRombank(adjustedRombank(rombank_) & (rombanks(memptrs_) - 1)); }
 };
 
 class Mbc1Multi64 : public Mbc {
+	MemPtrs &memptrs;
+	unsigned char rombank;
+	bool enableRam;
+	bool rombank0Mode;
+
+	static unsigned adjustedRombank(unsigned bank) { return bank & 0x1F ? bank : bank | 1; }
+
+	void setRombank() const {
+		if (rombank0Mode) {
+			const unsigned rb = toMulti64Rombank(rombank);
+			memptrs.setRombank0(rb & 0x30);
+			memptrs.setRombank(adjustedRombank(rb));
+		} else {
+			memptrs.setRombank0(0);
+			memptrs.setRombank(adjustedRombank(rombank & (rombanks(memptrs) - 1)));
+		}
+	}
+
 public:
 	explicit Mbc1Multi64(MemPtrs &memptrs)
-	: memptrs_(memptrs)
-	, rombank_(1)
-	, enableRam_(false)
-	, rombank0Mode_(false)
+	: memptrs(memptrs),
+	  rombank(1),
+	  enableRam(false),
+	  rombank0Mode(false)
 	{
 	}
 
-  	void loadOrSave(loadsave& state) {
-		state(rombank_);
-		state(enableRam_);
-		state(rombank0Mode_);
+	void loadOrSave(loadsave& state) {
+		state(rombank);
+		state(enableRam);
+		state(rombank0Mode);
 	}
-  
-	virtual void romWrite(unsigned const p, unsigned const data) {
-		switch (p >> 13 & 3) {
+
+	virtual void romWrite(const unsigned P, const unsigned data) {
+		switch (P >> 13 & 3) {
 		case 0:
-			enableRam_ = (data & 0xF) == 0xA;
-			memptrs_.setRambank(enableRam_ ? MemPtrs::read_en | MemPtrs::write_en : 0, 0);
+			enableRam = (data & 0xF) == 0xA;
+			memptrs.setRambank(enableRam ? MemPtrs::READ_EN | MemPtrs::WRITE_EN : 0, 0);
 			break;
 		case 1:
-			rombank_ = (rombank_   & 0x60) | (data    & 0x1F);
-			memptrs_.setRombank(rombank0Mode_
-				? adjustedRombank(toMulti64Rombank(rombank_))
-				: adjustedRombank(rombank_) & (rombanks(memptrs_) - 1));
+			rombank = (rombank   & 0x60) | (data    & 0x1F);
+			memptrs.setRombank(adjustedRombank(rombank0Mode ? toMulti64Rombank(rombank) : rombank & (rombanks(memptrs) - 1)));
 			break;
 		case 2:
-			rombank_ = (data << 5 & 0x60) | (rombank_ & 0x1F);
+			rombank = (data << 5 & 0x60) | (rombank & 0x1F);
 			setRombank();
 			break;
 		case 3:
-			rombank0Mode_ = data & 1;
+			rombank0Mode = data & 1;
 			setRombank();
 			break;
 		}
 	}
 
 	virtual void saveState(SaveState::Mem &ss) const {
-		ss.rombank = rombank_;
-		ss.enableRam = enableRam_;
-		ss.rambankMode = rombank0Mode_;
+		ss.rombank = rombank;
+		ss.enableRam = enableRam;
+		ss.rambankMode = rombank0Mode;
 	}
 
-	virtual void loadState(SaveState::Mem const &ss) {
-		rombank_ = ss.rombank;
-		enableRam_ = ss.enableRam;
-		rombank0Mode_ = ss.rambankMode;
-		memptrs_.setRambank(enableRam_ ? MemPtrs::read_en | MemPtrs::write_en : 0, 0);
+	virtual void loadState(const SaveState::Mem &ss) {
+		rombank = ss.rombank;
+		enableRam = ss.enableRam;
+		rombank0Mode = ss.rambankMode;
+		memptrs.setRambank(enableRam ? MemPtrs::READ_EN | MemPtrs::WRITE_EN : 0, 0);
 		setRombank();
 	}
-
+	
 	virtual bool isAddressWithinAreaRombankCanBeMappedTo(unsigned addr, unsigned bank) const {
 		return (addr < 0x4000) == ((bank & 0xF) == 0);
-	}
-
-private:
-	MemPtrs &memptrs_;
-	unsigned char rombank_;
-	bool enableRam_;
-	bool rombank0Mode_;
-
-	static unsigned adjustedRombank(unsigned bank) { return bank & 0x1F ? bank : bank | 1; }
-
-	void setRombank() const {
-		if (rombank0Mode_) {
-			unsigned const rb = toMulti64Rombank(rombank_);
-			memptrs_.setRombank0(rb & 0x30);
-			memptrs_.setRombank(adjustedRombank(rb));
-		} else {
-			memptrs_.setRombank0(0);
-			memptrs_.setRombank(adjustedRombank(rombank_) & (rombanks(memptrs_) - 1));
-		}
 	}
 };
 
 class Mbc2 : public DefaultMbc {
+	MemPtrs &memptrs;
+	unsigned char rombank;
+	bool enableRam;
+
 public:
 	explicit Mbc2(MemPtrs &memptrs)
-	: memptrs_(memptrs)
-	, rombank_(1)
-	, enableRam_(false)
+	: memptrs(memptrs),
+	  rombank(1),
+	  enableRam(false)
 	{
 	}
 
-  	void loadOrSave(loadsave& state) {
-		state(rombank_);
-		state(enableRam_);
+	void loadOrSave(loadsave& state) {
+		state(rombank);
+		state(enableRam);
 	}
-  
-	virtual void romWrite(unsigned const p, unsigned const data) {
-		switch (p & 0x6100) {
+
+	virtual void romWrite(const unsigned P, const unsigned data) {
+		switch (P & 0x6100) {
 		case 0x0000:
-			enableRam_ = (data & 0xF) == 0xA;
-			memptrs_.setRambank(enableRam_ ? MemPtrs::read_en | MemPtrs::write_en : 0, 0);
+			enableRam = (data & 0xF) == 0xA;
+			memptrs.setRambank(enableRam ? MemPtrs::READ_EN | MemPtrs::WRITE_EN : 0, 0);
 			break;
 		case 0x2100:
-			rombank_ = data & 0xF;
-			memptrs_.setRombank(rombank_ & (rombanks(memptrs_) - 1));
+			rombank = data & 0xF;
+			memptrs.setRombank(rombank & (rombanks(memptrs) - 1));
 			break;
 		}
 	}
 
 	virtual void saveState(SaveState::Mem &ss) const {
-		ss.rombank = rombank_;
-		ss.enableRam = enableRam_;
+		ss.rombank = rombank;
+		ss.enableRam = enableRam;
 	}
 
-	virtual void loadState(SaveState::Mem const &ss) {
-		rombank_ = ss.rombank;
-		enableRam_ = ss.enableRam;
-		memptrs_.setRambank(enableRam_ ? MemPtrs::read_en | MemPtrs::write_en : 0, 0);
-		memptrs_.setRombank(rombank_ & (rombanks(memptrs_) - 1));
+	virtual void loadState(const SaveState::Mem &ss) {
+		rombank = ss.rombank;
+		enableRam = ss.enableRam;
+		memptrs.setRambank(enableRam ? MemPtrs::READ_EN | MemPtrs::WRITE_EN : 0, 0);
+		memptrs.setRombank(rombank & (rombanks(memptrs) - 1));
 	}
-
-private:
-	MemPtrs &memptrs_;
-	unsigned char rombank_;
-	bool enableRam_;
 };
 
 class Mbc3 : public DefaultMbc {
+	MemPtrs &memptrs;
+	Rtc *const rtc;
+	unsigned char rombank;
+	unsigned char rambank;
+	bool enableRam;
+
+	void setRambank() const {
+		unsigned flags = enableRam ? MemPtrs::READ_EN | MemPtrs::WRITE_EN : 0;
+		
+		if (rtc) {
+			rtc->set(enableRam, rambank);
+			
+			if (rtc->getActive())
+				flags |= MemPtrs::RTC_EN;
+		}
+
+		memptrs.setRambank(flags, rambank & (rambanks(memptrs) - 1));
+	}
+
 public:
 	Mbc3(MemPtrs &memptrs, Rtc *const rtc)
-	: memptrs_(memptrs)
-	, rtc_(rtc)
-	, rombank_(1)
-	, rambank_(0)
-	, enableRam_(false)
+	: memptrs(memptrs),
+	  rtc(rtc),
+	  rombank(1),
+	  rambank(0),
+	  enableRam(false)
 	{
 	}
 
-  	void loadOrSave(loadsave& state) {
-		state(rombank_);
-		state(rambank_);
-		state(enableRam_);
+	void loadOrSave(loadsave& state) {
+		state(rombank);
+		state(rambank);
+		state(enableRam);
 	}
-  
-	virtual void romWrite(unsigned const p, unsigned const data) {
-		switch (p >> 13 & 3) {
+
+	virtual void romWrite(const unsigned P, const unsigned data) {
+		switch (P >> 13 & 3) {
 		case 0:
-			enableRam_ = (data & 0xF) == 0xA;
+			enableRam = (data & 0xF) == 0xA;
 			setRambank();
 			break;
 		case 1:
-			rombank_ = data & 0x7F;
-			setRombank();
+			rombank = data & 0x7F;
+			memptrs.setRombank(rombank & (rombanks(memptrs) - 1));
 			break;
 		case 2:
-			rambank_ = data;
+			rambank = data;
 			setRambank();
 			break;
 		case 3:
-			if (rtc_)
-				rtc_->latch(data);
+			if (rtc)
+				rtc->latch(data);
 
 			break;
 		}
 	}
 
 	virtual void saveState(SaveState::Mem &ss) const {
-		ss.rombank = rombank_;
-		ss.rambank = rambank_;
-		ss.enableRam = enableRam_;
+		ss.rombank = rombank;
+		ss.rambank = rambank;
+		ss.enableRam = enableRam;
 	}
 
-	virtual void loadState(SaveState::Mem const &ss) {
-		rombank_ = ss.rombank;
-		rambank_ = ss.rambank;
-		enableRam_ = ss.enableRam;
+	virtual void loadState(const SaveState::Mem &ss) {
+		rombank = ss.rombank;
+		rambank = ss.rambank;
+		enableRam = ss.enableRam;
 		setRambank();
-		setRombank();
-	}
-
-private:
-	MemPtrs &memptrs_;
-	Rtc *const rtc_;
-	unsigned char rombank_;
-	unsigned char rambank_;
-	bool enableRam_;
-
-	void setRambank() const {
-		unsigned flags = enableRam_ ? MemPtrs::read_en | MemPtrs::write_en : 0;
-
-		if (rtc_) {
-			rtc_->set(enableRam_, rambank_);
-
-			if (rtc_->activeData())
-				flags |= MemPtrs::rtc_en;
-		}
-
-		memptrs_.setRambank(flags, rambank_ & (rambanks(memptrs_) - 1));
-	}
-
-	void setRombank() const {
-		memptrs_.setRombank(std::max(rombank_ & (rombanks(memptrs_) - 1), 1u));
+		memptrs.setRombank(rombank & (rombanks(memptrs) - 1));
 	}
 };
 
 class HuC1 : public DefaultMbc {
+	MemPtrs &memptrs;
+	unsigned char rombank;
+	unsigned char rambank;
+	bool enableRam;
+	bool rambankMode;
+
+	void setRambank() const {
+		memptrs.setRambank(enableRam ? MemPtrs::READ_EN | MemPtrs::WRITE_EN : MemPtrs::READ_EN,
+		                   rambankMode ? rambank & (rambanks(memptrs) - 1) : 0);
+	}
+
+	void setRombank() const { memptrs.setRombank((rambankMode ? rombank : rambank << 6 | rombank) & (rombanks(memptrs) - 1)); }
+
 public:
 	explicit HuC1(MemPtrs &memptrs)
-	: memptrs_(memptrs)
-	, rombank_(1)
-	, rambank_(0)
-	, enableRam_(false)
-	, rambankMode_(false)
+	: memptrs(memptrs),
+	  rombank(1),
+	  rambank(0),
+	  enableRam(false),
+	  rambankMode(false)
 	{
 	}
 
-  	void loadOrSave(loadsave& state) {
-		state(rombank_);
-		state(rambank_);
-		state(enableRam_);
-		state(rambankMode_);
+	void loadOrSave(loadsave& state) {
+		state(rombank);
+		state(rambank);
+		state(enableRam);
+		state(rambankMode);
 	}
-  
-	virtual void romWrite(unsigned const p, unsigned const data) {
-		switch (p >> 13 & 3) {
+
+	virtual void romWrite(const unsigned P, const unsigned data) {
+		switch (P >> 13 & 3) {
 		case 0:
-			enableRam_ = (data & 0xF) == 0xA;
+			enableRam = (data & 0xF) == 0xA;
 			setRambank();
 			break;
 		case 1:
-			rombank_ = data & 0x3F;
+			rombank = data & 0x3F;
 			setRombank();
 			break;
 		case 2:
-			rambank_ = data & 3;
-			rambankMode_ ? setRambank() : setRombank();
+			rambank = data & 3;
+			rambankMode ? setRambank() : setRombank();
 			break;
 		case 3:
-			rambankMode_ = data & 1;
+			rambankMode = data & 1;
 			setRambank();
 			setRombank();
 			break;
@@ -398,69 +397,60 @@ public:
 	}
 
 	virtual void saveState(SaveState::Mem &ss) const {
-		ss.rombank = rombank_;
-		ss.rambank = rambank_;
-		ss.enableRam = enableRam_;
-		ss.rambankMode = rambankMode_;
+		ss.rombank = rombank;
+		ss.rambank = rambank;
+		ss.enableRam = enableRam;
+		ss.rambankMode = rambankMode;
 	}
 
-	virtual void loadState(SaveState::Mem const &ss) {
-		rombank_ = ss.rombank;
-		rambank_ = ss.rambank;
-		enableRam_ = ss.enableRam;
-		rambankMode_ = ss.rambankMode;
+	virtual void loadState(const SaveState::Mem &ss) {
+		rombank = ss.rombank;
+		rambank = ss.rambank;
+		enableRam = ss.enableRam;
+		rambankMode = ss.rambankMode;
 		setRambank();
 		setRombank();
-	}
-
-private:
-	MemPtrs &memptrs_;
-	unsigned char rombank_;
-	unsigned char rambank_;
-	bool enableRam_;
-	bool rambankMode_;
-
-	void setRambank() const {
-		memptrs_.setRambank(enableRam_ ? MemPtrs::read_en | MemPtrs::write_en : MemPtrs::read_en,
-		                    rambankMode_ ? rambank_ & (rambanks(memptrs_) - 1) : 0);
-	}
-
-	void setRombank() const {
-		memptrs_.setRombank((rambankMode_ ? rombank_ : rambank_ << 6 | rombank_)
-		                  & (rombanks(memptrs_) - 1));
 	}
 };
 
 class Mbc5 : public DefaultMbc {
+	MemPtrs &memptrs;
+	unsigned short rombank;
+	unsigned char rambank;
+	bool enableRam;
+
+	static unsigned adjustedRombank(const unsigned bank) { return bank ? bank : 1; }
+	void setRambank() const { memptrs.setRambank(enableRam ? MemPtrs::READ_EN | MemPtrs::WRITE_EN : 0, rambank & (rambanks(memptrs) - 1)); }
+	void setRombank() const { memptrs.setRombank(adjustedRombank(rombank & (rombanks(memptrs) - 1))); }
+
 public:
 	explicit Mbc5(MemPtrs &memptrs)
-	: memptrs_(memptrs)
-	, rombank_(1)
-	, rambank_(0)
-	, enableRam_(false)
+	: memptrs(memptrs),
+	  rombank(1),
+	  rambank(0),
+	  enableRam(false)
 	{
 	}
 
-  	void loadOrSave(loadsave& state) {
-		state(rombank_);
-		state(rambank_);
-		state(enableRam_);
+	void loadOrSave(loadsave& state) {
+		state(rombank);
+		state(rambank);
+		state(enableRam);
 	}
-  
-	virtual void romWrite(unsigned const p, unsigned const data) {
-		switch (p >> 13 & 3) {
+
+	virtual void romWrite(const unsigned P, const unsigned data) {
+		switch (P >> 13 & 3) {
 		case 0:
-			enableRam_ = (data & 0xF) == 0xA;
+			enableRam = (data & 0xF) == 0xA;
 			setRambank();
 			break;
 		case 1:
-			rombank_ = p < 0x3000
-			         ? (rombank_  & 0x100) |  data
-			         : (data << 8 & 0x100) | (rombank_ & 0xFF);
+			rombank = P < 0x3000 ? (rombank   & 0x100) |  data
+			                     : (data << 8 & 0x100) | (rombank & 0xFF);
 			setRombank();
 			break;
 		case 2:
-			rambank_ = data & 0xF;
+			rambank = data & 0xF;
 			setRambank();
 			break;
 		case 3:
@@ -469,36 +459,21 @@ public:
 	}
 
 	virtual void saveState(SaveState::Mem &ss) const {
-		ss.rombank = rombank_;
-		ss.rambank = rambank_;
-		ss.enableRam = enableRam_;
+		ss.rombank = rombank;
+		ss.rambank = rambank;
+		ss.enableRam = enableRam;
 	}
 
-	virtual void loadState(SaveState::Mem const &ss) {
-		rombank_ = ss.rombank;
-		rambank_ = ss.rambank;
-		enableRam_ = ss.enableRam;
+	virtual void loadState(const SaveState::Mem &ss) {
+		rombank = ss.rombank;
+		rambank = ss.rambank;
+		enableRam = ss.enableRam;
 		setRambank();
 		setRombank();
 	}
-
-private:
-	MemPtrs &memptrs_;
-	unsigned short rombank_;
-	unsigned char rambank_;
-	bool enableRam_;
-
-	static unsigned adjustedRombank(unsigned bank) { return bank ? bank : 1; }
-
-	void setRambank() const {
-		memptrs_.setRambank(enableRam_ ? MemPtrs::read_en | MemPtrs::write_en : 0,
-		                    rambank_ & (rambanks(memptrs_) - 1));
-	}
-
-	void setRombank() const { memptrs_.setRombank(adjustedRombank(rombank_) & (rombanks(memptrs_) - 1)); }
 };
 
-static bool hasRtc(unsigned headerByte0x147) {
+static bool hasRtc(const unsigned headerByte0x147) {
 	switch (headerByte0x147) {
 	case 0x0F:
 	case 0x10: return true;
@@ -509,24 +484,24 @@ static bool hasRtc(unsigned headerByte0x147) {
 }
 
 void Cartridge::setStatePtrs(SaveState &state) {
-	state.mem.vram.set(memptrs_.vramdata(), memptrs_.vramdataend() - memptrs_.vramdata());
-	state.mem.sram.set(memptrs_.rambankdata(), memptrs_.rambankdataend() - memptrs_.rambankdata());
-	state.mem.wram.set(memptrs_.wramdata(0), memptrs_.wramdataend() - memptrs_.wramdata(0));
+	state.mem.vram.set(memptrs.vramdata(), memptrs.vramdataend() - memptrs.vramdata());
+	state.mem.sram.set(memptrs.rambankdata(), memptrs.rambankdataend() - memptrs.rambankdata());
+	state.mem.wram.set(memptrs.wramdata(0), memptrs.wramdataend() - memptrs.wramdata(0));
 }
 
 void Cartridge::saveState(SaveState &state) const {
-	mbc_->saveState(state.mem);
-	rtc_.saveState(state);
+	mbc->saveState(state.mem);
+	rtc.saveState(state);
 }
 
-void Cartridge::loadState(SaveState const &state) {
-	rtc_.loadState(state);
-	mbc_->loadState(state.mem);
+void Cartridge::loadState(const SaveState &state) {
+	rtc.loadState(state);
+	mbc->loadState(state.mem);
 }
 
-static std::string const stripExtension(std::string const &str) {
-	std::string::size_type const lastDot = str.find_last_of('.');
-	std::string::size_type const lastSlash = str.find_last_of('/');
+static const std::string stripExtension(const std::string &str) {
+	const std::string::size_type lastDot = str.find_last_of('.');
+	const std::string::size_type lastSlash = str.find_last_of('/');
 
 	if (lastDot != std::string::npos && (lastSlash == std::string::npos || lastSlash < lastDot))
 		return str.substr(0, lastDot);
@@ -534,29 +509,29 @@ static std::string const stripExtension(std::string const &str) {
 	return str;
 }
 
-static std::string const stripDir(std::string const &str) {
-	std::string::size_type const lastSlash = str.find_last_of('/');
+static const std::string stripDir(const std::string &str) {
+	const std::string::size_type lastSlash = str.find_last_of('/');
+
 	if (lastSlash != std::string::npos)
 		return str.substr(lastSlash + 1);
 
 	return str;
 }
 
-std::string const Cartridge::saveBasePath() const {
-	return saveDir_.empty()
-	     ? defaultSaveBasePath_
-	     : saveDir_ + stripDir(defaultSaveBasePath_);
+const std::string Cartridge::saveBasePath() const {
+	return saveDir.empty() ? defaultSaveBasePath : saveDir + stripDir(defaultSaveBasePath);
 }
 
-void Cartridge::setSaveDir(std::string const &dir) {
-	saveDir_ = dir;
-	if (!saveDir_.empty() && saveDir_[saveDir_.length() - 1] != '/')
-		saveDir_ += '/';
+void Cartridge::setSaveDir(const std::string &dir) {
+	saveDir = dir;
+
+	if (!saveDir.empty() && saveDir[saveDir.length() - 1] != '/')
+		saveDir += '/';
 }
 
-static void enforce8bit(unsigned char *data, std::size_t size) {
+static void enforce8bit(unsigned char *data, unsigned long sz) {
 	if (static_cast<unsigned char>(0x100))
-		while (size--)
+		while (sz--)
 			*data++ &= 0xFF;
 }
 
@@ -571,51 +546,43 @@ static unsigned pow2ceil(unsigned n) {
 	return n;
 }
 
-static bool presumedMulti64Mbc1(unsigned char const header[], unsigned rombanks) {
+static bool presumedMulti64Mbc1(unsigned char const header[], unsigned const rombanks) {
 	return header[0x147] == 1 && header[0x149] == 0 && rombanks == 64;
 }
 
-LoadRes Cartridge::loadROM(std::string const &romfile,
-                           bool const forceDmg,
-                           bool const multicartCompat)
-{
-	scoped_ptr<File> const rom(newFileInstance(romfile));
+LoadRes Cartridge::loadROM(std::string const &romfile, bool const forceDmg, bool const multicartCompat) {
+	const transfer_ptr<File> rom(newFileInstance(romfile));
+
 	if (rom->fail())
 		return LOADRES_IO_ERROR;
-
-	enum Cartridgetype { type_plain,
-	                     type_mbc1,
-	                     type_mbc2,
-	                     type_mbc3,
-	                     type_mbc5,
-	                     type_huc1 };
-	Cartridgetype type = type_plain;
+	
 	unsigned rambanks = 1;
 	unsigned rombanks = 2;
 	bool cgb = false;
+	enum Cartridgetype { PLAIN, MBC1, MBC2, MBC3, MBC5, HUC1 } type = PLAIN;
 
 	{
 		unsigned char header[0x150];
-		rom->read(reinterpret_cast<char *>(header), sizeof header);
+		rom->read(reinterpret_cast<char*>(header), sizeof header);
 
 		switch (header[0x0147]) {
-		case 0x00: type = type_plain; break;
+		case 0x00: type = PLAIN; break;
 		case 0x01:
 		case 0x02:
-		case 0x03: type = type_mbc1; break;
+		case 0x03: type = MBC1; break;
 		case 0x05:
-		case 0x06: type = type_mbc2; break;
+		case 0x06: type = MBC2; break;
 		case 0x08:
-		case 0x09: type = type_plain; break;
-		case 0x0B:
+		case 0x09: type = PLAIN; break;
+		case 0x0B: 
 		case 0x0C:
 		case 0x0D: return LOADRES_UNSUPPORTED_MBC_MMM01;
 		case 0x0F:
 		case 0x10:
 		case 0x11:
 		case 0x12:
-		case 0x13: type = type_mbc3; break;
-		case 0x15:
+		case 0x13: type = MBC3; break;
+		case 0x15: 
 		case 0x16:
 		case 0x17: return LOADRES_UNSUPPORTED_MBC_MBC4;
 		case 0x19:
@@ -623,13 +590,11 @@ LoadRes Cartridge::loadROM(std::string const &romfile,
 		case 0x1B:
 		case 0x1C:
 		case 0x1D:
-		case 0x1E: type = type_mbc5; break;
-		case 0x20: return LOADRES_UNSUPPORTED_MBC_MBC6;
-		case 0x22: return LOADRES_UNSUPPORTED_MBC_MBC7;
+		case 0x1E: type = MBC5; break;
 		case 0xFC: return LOADRES_UNSUPPORTED_MBC_POCKET_CAMERA;
 		case 0xFD: return LOADRES_UNSUPPORTED_MBC_TAMA5;
 		case 0xFE: return LOADRES_UNSUPPORTED_MBC_HUC3;
-		case 0xFF: type = type_huc1; break;
+		case 0xFF: type = HUC1; break;
 		default:   return LOADRES_BAD_FILE_OR_UNKNOWN_MBC;
 		}
 
@@ -655,50 +620,42 @@ LoadRes Cartridge::loadROM(std::string const &romfile,
 
 	std::size_t const filesize = rom->size();
 	rombanks = std::max(pow2ceil(filesize / 0x4000), 2u);
-
-	defaultSaveBasePath_.clear();
-	ggUndoList_.clear();
-	mbc_.reset();
-	memptrs_.reset(rombanks, rambanks, cgb ? 8 : 2);
-	rtc_.set(false, 0);
+	
+	defaultSaveBasePath.clear();
+	ggUndoList.clear();
+	mbc.reset();
+	memptrs.reset(rombanks, rambanks, cgb ? 8 : 2);
+	rtc.set(false, 0);
 
 	rom->rewind();
-	rom->read(reinterpret_cast<char*>(memptrs_.romdata()), filesize / 0x4000 * 0x4000ul);
-	std::memset(memptrs_.romdata() + filesize / 0x4000 * 0x4000ul,
-	            0xFF,
-	            (rombanks - filesize / 0x4000) * 0x4000ul);
-	enforce8bit(memptrs_.romdata(), rombanks * 0x4000ul);
-
+	rom->read(reinterpret_cast<char*>(memptrs.romdata()), (filesize / 0x4000) * 0x4000ul);
+	std::memset(memptrs.romdata() + (filesize / 0x4000) * 0x4000ul, 0xFF, (rombanks - filesize / 0x4000) * 0x4000ul);
+	enforce8bit(memptrs.romdata(), rombanks * 0x4000ul);
+	
 	if (rom->fail())
 		return LOADRES_IO_ERROR;
-
-	defaultSaveBasePath_ = stripExtension(romfile);
-
+	
+	defaultSaveBasePath = stripExtension(romfile);
+	
 	switch (type) {
-	case type_plain: mbc_.reset(new Mbc0(memptrs_)); break;
-	case type_mbc1:
-		if (multicartCompat && presumedMulti64Mbc1(memptrs_.romdata(), rombanks)) {
-			mbc_.reset(new Mbc1Multi64(memptrs_));
+	case PLAIN: mbc.reset(new Mbc0(memptrs)); break;
+	case MBC1:
+		if (multicartCompat && presumedMulti64Mbc1(memptrs.romdata(), rombanks)) {
+			mbc.reset(new Mbc1Multi64(memptrs));
 		} else
-			mbc_.reset(new Mbc1(memptrs_));
+			mbc.reset(new Mbc1(memptrs));
 
 		break;
-	case type_mbc2: mbc_.reset(new Mbc2(memptrs_)); break;
-	case type_mbc3:
-		mbc_.reset(new Mbc3(memptrs_, hasRtc(memptrs_.romdata()[0x147]) ? &rtc_ : 0));
-		break;
-	case type_mbc5: mbc_.reset(new Mbc5(memptrs_)); break;
-	case type_huc1: mbc_.reset(new HuC1(memptrs_)); break;
+	case MBC2: mbc.reset(new Mbc2(memptrs)); break;
+	case MBC3: mbc.reset(new Mbc3(memptrs, hasRtc(memptrs.romdata()[0x147]) ? &rtc : 0)); break;
+	case MBC5: mbc.reset(new Mbc5(memptrs)); break;
+	case HUC1: mbc.reset(new HuC1(memptrs)); break;
 	}
 
 	return LOADRES_OK;
 }
 
-Cartridge::Cartridge() : savestateBuf(NULL)
-{
-}
-  
-static bool hasBattery(unsigned char headerByte0x147) {
+static bool hasBattery(const unsigned char headerByte0x147) {
 	switch (headerByte0x147) {
 	case 0x03:
 	case 0x06:
@@ -718,99 +675,95 @@ Cartridge::Cartridge() : savestateBuf(NULL)
 }
 
 void Cartridge::loadSavedata() {
-	std::string const &sbp = saveBasePath();
+	const std::string &sbp = saveBasePath();
 
-	if (hasBattery(memptrs_.romdata()[0x147])) {
-	        if (savestateBuf != NULL) {
-			memcpy(memptrs_.rambankdata(), savestateBuf, memptrs_.rambankdataend() - memptrs_.rambankdata());
+	if (hasBattery(memptrs.romdata()[0x147])) {
+		if (savestateBuf != NULL) {
+			memcpy(memptrs.rambankdata(), savestateBuf, memptrs.rambankdataend() - memptrs.rambankdata());
 		}
-		
 		std::ifstream file((sbp + ".sav").c_str(), std::ios::binary | std::ios::in);
 
 		if (file.is_open()) {
-			file.read(reinterpret_cast<char*>(memptrs_.rambankdata()),
-			          memptrs_.rambankdataend() - memptrs_.rambankdata());
-			enforce8bit(memptrs_.rambankdata(), memptrs_.rambankdataend() - memptrs_.rambankdata());
+			file.read(reinterpret_cast<char*>(memptrs.rambankdata()), memptrs.rambankdataend() - memptrs.rambankdata());
+			enforce8bit(memptrs.rambankdata(), memptrs.rambankdataend() - memptrs.rambankdata());
 		}
 	}
 
-	if (hasRtc(memptrs_.romdata()[0x147])) {
+	if (hasRtc(memptrs.romdata()[0x147])) {
 		std::ifstream file((sbp + ".rtc").c_str(), std::ios::binary | std::ios::in);
-		if (file) {
-			unsigned long basetime =    file.get() & 0xFF;
+
+		if (file.is_open()) {
+			unsigned long basetime = file.get() & 0xFF;
+
 			basetime = basetime << 8 | (file.get() & 0xFF);
 			basetime = basetime << 8 | (file.get() & 0xFF);
 			basetime = basetime << 8 | (file.get() & 0xFF);
-			rtc_.setBaseTime(basetime);
+
+			rtc.setBaseTime(basetime);
 		}
 	}
 }
 
 void Cartridge::saveSavedata() {
-	std::string const &sbp = saveBasePath();
+	const std::string &sbp = saveBasePath();
 
-	if (hasBattery(memptrs_.romdata()[0x147])) {
-	        if (savestateBuf != NULL)
+	if (hasBattery(memptrs.romdata()[0x147])) {
+		if (savestateBuf != NULL)
 			delete[] savestateBuf;
-		savestateBuf = new char[memptrs_.rambankdataend() - memptrs_.rambankdata()];
-		memcpy(savestateBuf, memptrs_.rambankdata(), memptrs_.rambankdataend() - memptrs_.rambankdata());
-	        std::ofstream file((sbp + ".sav").c_str(), std::ios::binary | std::ios::out);
-	  	file.write(reinterpret_cast<char const *>(memptrs_.rambankdata()),
-	  	           memptrs_.rambankdataend() - memptrs_.rambankdata());
+		savestateBuf = new char[memptrs.rambankdataend() - memptrs.rambankdata()];
+		memcpy(savestateBuf, memptrs.rambankdata(), memptrs.rambankdataend() - memptrs.rambankdata());
+		std::ofstream file((sbp + ".sav").c_str(), std::ios::binary | std::ios::out);
+		file.write(reinterpret_cast<const char*>(memptrs.rambankdata()), memptrs.rambankdataend() - memptrs.rambankdata());
 	}
-	
-	if (hasRtc(memptrs_.romdata()[0x147])) {
+
+	if (hasRtc(memptrs.romdata()[0x147])) {
 		std::ofstream file((sbp + ".rtc").c_str(), std::ios::binary | std::ios::out);
-		unsigned long const basetime = rtc_.baseTime();
+		const unsigned long basetime = rtc.getBaseTime();
+
 		file.put(basetime >> 24 & 0xFF);
 		file.put(basetime >> 16 & 0xFF);
 		file.put(basetime >>  8 & 0xFF);
 		file.put(basetime       & 0xFF);
 	}
-	
 }
 
-static int asHex(char c) {
+static int asHex(const char c) {
 	return c >= 'A' ? c - 'A' + 0xA : c - '0';
 }
 
-void Cartridge::applyGameGenie(std::string const &code) {
+void Cartridge::applyGameGenie(const std::string &code) {
 	if (6 < code.length()) {
-		unsigned const val = (asHex(code[0]) << 4 | asHex(code[1])) & 0xFF;
-		unsigned const addr = (    asHex(code[2])        <<  8
-		                        |  asHex(code[4])        <<  4
-		                        |  asHex(code[5])
-		                        | (asHex(code[6]) ^ 0xF) << 12) & 0x7FFF;
+		const unsigned val = (asHex(code[0]) << 4 | asHex(code[1])) & 0xFF;
+		const unsigned addr = (asHex(code[2]) << 8 | asHex(code[4]) << 4 | asHex(code[5]) | (asHex(code[6]) ^ 0xF) << 12) & 0x7FFF;
 		unsigned cmp = 0xFFFF;
+
 		if (10 < code.length()) {
 			cmp = (asHex(code[8]) << 4 | asHex(code[10])) ^ 0xFF;
 			cmp = ((cmp >> 2 | cmp << 6) ^ 0x45) & 0xFF;
 		}
 
-		for (unsigned bank = 0; bank < std::size_t(memptrs_.romdataend() - memptrs_.romdata()) / 0x4000; ++bank) {
-			if (mbc_->isAddressWithinAreaRombankCanBeMappedTo(addr, bank)
-					&& (cmp > 0xFF || memptrs_.romdata()[bank * 0x4000ul + (addr & 0x3FFF)] == cmp)) {
-				ggUndoList_.push_back(AddrData(bank * 0x4000ul + (addr & 0x3FFF),
-				                      memptrs_.romdata()[bank * 0x4000ul + (addr & 0x3FFF)]));
-				memptrs_.romdata()[bank * 0x4000ul + (addr & 0x3FFF)] = val;
+		for (unsigned bank = 0; bank < static_cast<std::size_t>(memptrs.romdataend() - memptrs.romdata()) / 0x4000; ++bank) {
+			if (mbc->isAddressWithinAreaRombankCanBeMappedTo(addr, bank)
+					&& (cmp > 0xFF || memptrs.romdata()[bank * 0x4000ul + (addr & 0x3FFF)] == cmp)) {
+				ggUndoList.push_back(AddrData(bank * 0x4000ul + (addr & 0x3FFF), memptrs.romdata()[bank * 0x4000ul + (addr & 0x3FFF)]));
+				memptrs.romdata()[bank * 0x4000ul + (addr & 0x3FFF)] = val;
 			}
 		}
 	}
 }
 
-void Cartridge::setGameGenie(std::string const &codes) {
+void Cartridge::setGameGenie(const std::string &codes) {
 	if (loaded()) {
-		for (std::vector<AddrData>::reverse_iterator it =
-				ggUndoList_.rbegin(), end = ggUndoList_.rend(); it != end; ++it) {
-			if (memptrs_.romdata() + it->addr < memptrs_.romdataend())
-				memptrs_.romdata()[it->addr] = it->data;
+		for (std::vector<AddrData>::reverse_iterator it = ggUndoList.rbegin(), end = ggUndoList.rend(); it != end; ++it) {
+			if (memptrs.romdata() + it->addr < memptrs.romdataend())
+				memptrs.romdata()[it->addr] = it->data;
 		}
-
-		ggUndoList_.clear();
-
+		
+		ggUndoList.clear();
+		
 		std::string code;
-		for (std::size_t pos = 0; pos < codes.length(); pos += code.length() + 1) {
-			code = codes.substr(pos, codes.find(';', pos) - pos);
+		for (std::size_t pos = 0; pos < codes.length()
+				&& (code = codes.substr(pos, codes.find(';', pos) - pos), true); pos += code.length() + 1) {
 			applyGameGenie(code);
 		}
 	}
@@ -818,25 +771,25 @@ void Cartridge::setGameGenie(std::string const &codes) {
 
 PakInfo const Cartridge::pakInfo(bool const multipakCompat) const {
 	if (loaded()) {
-		unsigned const rombs = rombanks(memptrs_);
-		return PakInfo(multipakCompat && presumedMulti64Mbc1(memptrs_.romdata(), rombs),
+		unsigned const rombs = rombanks(memptrs);
+		return PakInfo(multipakCompat && presumedMulti64Mbc1(memptrs.romdata(), rombs),
 		               rombs,
-		               memptrs_.romdata());
+		               memptrs.romdata());
 	}
 
 	return PakInfo();
 }
 
 void Cartridge::loadOrSave(loadsave& state) {
-	memptrs_.loadOrSave(state);
-	rtc_.loadOrSave(state);
-	mbc_->loadOrSave(state);
-	unsigned ggsize = ggUndoList_.size();
+	memptrs.loadOrSave(state);
+	rtc.loadOrSave(state);
+	mbc->loadOrSave(state);
+	unsigned ggsize = ggUndoList.size();
 	state(ggsize);
 	if(!state.saving())
-		ggUndoList_.resize(ggsize);
+		ggUndoList.resize(ggsize);
 	for(size_t i = 0; i < ggsize; i++)
-		ggUndoList_[i].loadOrSave(state);
+		ggUndoList[i].loadOrSave(state);
 }
 
 }

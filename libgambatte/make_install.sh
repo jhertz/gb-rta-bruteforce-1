@@ -1,3 +1,3 @@
 scons -c
 scons
-cp ./libgambatte.dylib /usr/lib/ && echo "copied dylib to /usr/lib"
+cp ./libgambatte.dylib /usr/local/lib/ && echo "copied dylib to /usr/local/lib"
