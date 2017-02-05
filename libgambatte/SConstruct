@@ -1,6 +1,6 @@
 import sys
 
-global_cflags = ARGUMENTS.get('CFLAGS', '-Wall -O2 -Wextra -fomit-frame-pointer')
+global_cflags = ARGUMENTS.get('CFLAGS', '-Wall -Wextra -O2 -fomit-frame-pointer')
 if sys.platform == 'cygwin':
     global_cflags += ' -fpermissive'
 global_cxxflags = ARGUMENTS.get('CXXFLAGS', global_cflags + ' -fno-exceptions -fno-rtti')
@@ -13,12 +13,12 @@ vars = Variables()
 vars.Add('CC')
 vars.Add('CXX')
 
-env = Environment(CC = "gcc-4.2",
-				  CXX = "g++-4.2",
+env = Environment(CC = "clang",
+				  CXX = "clang++",
 				  CPPPATH = global_cpppath,
                   CFLAGS = global_cflags + global_defines,
                   CXXFLAGS = global_cxxflags + global_defines,
-                  LINKFLAGS = '-lz',
+		  LINKFLAGS = '-lz',
                   variables = vars)
 
 env.ParseConfig('sdl-config --cflags --libs')
@@ -92,4 +92,3 @@ else:
 conf.Finish()
 
 env.SharedLibrary('gambatte', sourceFiles)
-
