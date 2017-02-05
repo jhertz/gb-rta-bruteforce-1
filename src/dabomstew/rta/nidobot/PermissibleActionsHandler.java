@@ -37,29 +37,29 @@ public class PermissibleActionsHandler {
 
         System.out.println("our x:" + x + " y:" + y);
         if(x == 20 && y == 1){ //walk into the deathfly
-            System.out.println("adding up, since were about to hit the goal");
+        //    System.out.println("adding up, since were about to hit the goal");
             starting.add(UP);
             return starting;
         }
 
         //don't trainer bonk
         if( x != 20 && y != 2) {
-            System.out.println("adding up");
+         //   System.out.println("adding up");
             starting.add(UP);
         }
 
         if(y < 25){ //dont walk further down
-            System.out.println("adding down");
+          //  System.out.println("adding down");
             starting.add(DOWN);
         }
 
         if(x > 1){ // dont wallbonk
-            System.out.println("adding left");
+          //  System.out.println("adding left");
             starting.add(LEFT);
         }
 
         if(x < 2){
-            System.out.println("adding right");
+         //   System.out.println("adding right");
             starting.add(RIGHT);
         }
 

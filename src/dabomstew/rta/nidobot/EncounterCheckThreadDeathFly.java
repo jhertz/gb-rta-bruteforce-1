@@ -65,6 +65,7 @@ public class EncounterCheckThreadDeathFly extends Thread {
                 if (mem.getHRA() >= 0 && mem.getHRA() <= 14) { // 24
                     //  got encounter?
                     // TODO: make sure this doesnt get hit by trainer
+                    System.out.println("we found a deathfly!");
                     String rngAtEnc = mem.getRNGState();
                     wrap.advanceFrame();
                     wrap.advanceFrame();
@@ -73,6 +74,7 @@ public class EncounterCheckThreadDeathFly extends Thread {
 
                     int totalEncCost = pathCost + 17;
                     String encRep = enc.toString();
+                    System.out.println("got far enough that this hack mattered");
                     DeathFlyBot.startPositionsEncs.get(peg.rngState).add(
                             encRep + "/" + 17 + "/" + rngAtEnc + "/" + UP); //XXX: this might be wrong
                     synchronized (DeathFlyBot.encountersCosts) {
@@ -90,7 +92,7 @@ public class EncounterCheckThreadDeathFly extends Thread {
                     // weedle 0x70}
 
                     // check if the enc.species is a good encounter
-                    if (enc.species == 0x7B || enc.species == 0x70 && enc.level == 15) {
+                    if (enc.species == 0x7B || enc.species == 0x70 ) { //&& enc.level == 15
                         DeathFlyBot.logLN("POTENTIAL BUG ENCOUNTER FOUND!");
                         DeathFlyBot.logF(
                                 "inputs %s step %d cost %d encounter: species %d lv%d DVs %04X rng %s encrng %s\n",

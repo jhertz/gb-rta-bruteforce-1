@@ -120,8 +120,9 @@ public class DeathFlyBot {
         initLog();
 
 
+        System.out.println("some addrs\n joypadOverworldAddr:" +  RedBlueAddr.joypadOverworldAddr + " \n printLetterDelayAddr" + RedBlueAddr.printLetterDelayAddr + " \n  encounterTestAddr" + RedBlueAddr.encounterTestAddr);
         int[] firstLoopAddresses = {RedBlueAddr.joypadOverworldAddr};
-        int[] subsLoopAddresses = {RedBlueAddr.joypadOverworldAddr, RedBlueAddr.printLetterDelayAddr, RedBlueAddr.newBattleAddr};
+        int[] subsLoopAddresses = {RedBlueAddr.joypadOverworldAddr, RedBlueAddr.printLetterDelayAddr, RedBlueAddr.encounterTestAddr};
 
         // setup starting positions
         StartingPositionManager spm = new StartingPositionManager();
@@ -195,6 +196,8 @@ public class DeathFlyBot {
                     wrap.injectRBInput(introInputs[introInputCtr++]);
                     wrap.advanceFrame();
                 }
+               // Thread.sleep(1000 * 60 * 60);
+               // System.out.println("done sleeping");
 
                 // overworld loop
                 boolean checkingPaths = true;
@@ -216,7 +219,7 @@ public class DeathFlyBot {
 
 
                     //System.out.println("entering main loop, lets print some locals");
-                    System.out.println("where we are: mem.getX:" + mem.getX() + " mem.getY:" + mem.getY());
+                  //  System.out.println("where we are: mem.getX:" + mem.getX() + " mem.getY:" + mem.getY());
                    // Thread.sleep(1000);
 
                     int result = wrap.advanceWithJoypadToAddress(lastInput, addresses);
@@ -224,27 +227,32 @@ public class DeathFlyBot {
                     String curState = mem.getUniqid();
 
                     //check for garbage frames
-                    boolean garbage = mem.getTurnFrameStatus() != 0 || result != RedBlueAddr.joypadOverworldAddr;
+                  //  boolean garbage = mem.getTurnFrameStatus() != 0 || result != RedBlueAddr.joypadOverworldAddr;
+                    boolean garbage = false;
 
+                  //  System.out.println("tfs: " + mem.getTurnFrameStatus());
+                    System.out.println("addr:" + result);
 
-                    if(result == RedBlueAddr.newBattleAddr && !atGoal(mem)){
-                        System.out.println("found an encounter early :(");
+                    if(result == RedBlueAddr.encounterTestAddr && !atGoal(mem)){ //might have found an enc
+                        System.out.println("found an encounter early :(, mem.hra:" + mem.getHRA());
                         for(int i=0; i < 60; i++)
                             wrap.advanceFrame();
-                        Thread.sleep(5000);
+                        Thread.sleep(5);
                         garbage = true;
                     }
 
 
                     if (garbage) {
-                        if (mem.getTurnFrameStatus() != 0) {
+
+
+                        /*if (mem.getTurnFrameStatus() != 0) {
                             System.out.println("discarded for TFS != 0");
                             if (mem.isDroppingInputs()) {
                                 System.out.println("Uhhhhh");
                             }
                         } else {
-                            System.out.println("discarded for not joypadoverworld, state was:" + result);
-                        }
+                            //System.out.println("discarded for not joypadoverworld, state was:" + result);
+                        } */
 
 
                         // okay, so we need to actually advance things now
@@ -301,7 +309,7 @@ public class DeathFlyBot {
                             for (Integer inp : whereWeGo) {
                                 OverworldStateAction action = new OverworldStateAction(curState,
                                         curSave, inp);
-                                System.out.println("adding action: " + inp);
+                              //  System.out.println("adding action: " + inp);
                                 actionQueue.add(action);
                             }
                         }
@@ -354,7 +362,7 @@ public class DeathFlyBot {
                                     wraps[useNum], baseCost, ps, threadsRunning, useNum).start();
                         }
                     }
-                    Thread.sleep(1);
+                   // Thread.sleep(1);
                 }
 
                 boolean allDone = false;
@@ -367,7 +375,7 @@ public class DeathFlyBot {
                             }
                         }
                     }
-                    Thread.sleep(5);
+                  //  Thread.sleep(5);
                 }
                 logLN(".done part 2 in " + (System.currentTimeMillis() - lastOffset) + "ms");
             } catch (OutOfMemoryError ex) {
