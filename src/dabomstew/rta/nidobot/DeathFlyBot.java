@@ -235,9 +235,9 @@ public class DeathFlyBot {
 
                     if(result == RedBlueAddr.encounterTestAddr && !atGoal(mem)){ //might have found an enc
                         System.out.println("found an encounter early :(, mem.hra:" + mem.getHRA());
-                        for(int i=0; i < 60; i++)
+                        for(int i=0; i < 1000; i++)
                             wrap.advanceFrame();
-                        Thread.sleep(5);
+                        Thread.sleep(1000);
                         garbage = true;
                     }
 
