@@ -217,7 +217,7 @@ public class DeathFlyBot {
 
                 while (checkingPaths) {
 
-
+                    Position currentPos = new Position(MAP_ID, mem.getX(), mem.getY());
                     //System.out.println("entering main loop, lets print some locals");
                   //  System.out.println("where we are: mem.getX:" + mem.getX() + " mem.getY:" + mem.getY());
                    // Thread.sleep(1000);
@@ -296,10 +296,15 @@ public class DeathFlyBot {
                             }
                         }
 
+                        System.out.println("our position:" + currentPos);
+
+                        System.out.println("seen positions:" + seenPositions);
+
                         //have we reached a new state we havent reached before
-                        if (!seenStates.contains(curState) && !seenPositions.contains(new Position(MAP_ID, mem.getX(), mem.getY()))) {
-                            System.out.println("in a new state, adding to queue");
+                        if (!seenStates.contains(curState) && !seenPositions.contains(currentPos)) {
+                            System.out.println("in a new state, adding to queue:" + curState);
                             seenStates.add(curState);
+                            seenPositions.add(currentPos);
                             statePaths.put(curState, lastPath);
                             curSave = gb.saveState();
 
