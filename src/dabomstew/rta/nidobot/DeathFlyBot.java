@@ -482,6 +482,7 @@ public class DeathFlyBot {
     }
 
     public static boolean isEncounter(GBMemory mem){ //XXX: wtf are we getting nullptrs here?
+        System.out.println("encounter check, HRA: " + mem.getHRA() + " encounterRate: " + RBMap.getMapByID(mem.getMap()).getGlobalEncounterRate());
         return (mem.getHRA() >= 0 && mem.getHRA() < RBMap.getMapByID(mem.getMap()).getGlobalEncounterRate());
 
     }
