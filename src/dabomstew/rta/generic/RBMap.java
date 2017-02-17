@@ -15,7 +15,7 @@ public class RBMap {
 	// TODO: Cave maps and perhaps city buildings
 	public static RBMap PALLET_TOWN = new RBMap(0, 10, 50, 234, 0, "./maps/PALLET_TOWN.bin");
 	public static RBMap VIRIDIAN_CITY = new RBMap(1, 20, 40, 162, 0, "./maps/VIRIDIAN_CITY.bin");
-	public static RBMap VIRIDIAN_FORREST = new RBMap(0x33, 17, ??, ??, ??, "./maps/VIRIDIAN_FORREST.bin");
+	public static RBMap VIRIDIAN_FOREST = new RBMap(0x33, 17, 42, 42, 8	, "./maps/VIRIDIAN_FOREST.bin");
 	public static RBMap PEWTER_CITY = new RBMap(2, 20, 40, 54, 0, "./maps/PEWTER_CITY.bin");
 	public static RBMap CERULEAN_CITY = new RBMap(3, 20, 220, 36, 0, "./maps/CERULEAN_CITY.bin");
 	public static RBMap LAVENDER_TOWN = new RBMap(4, 10, 320, 116, 0, "./maps/LAVENDER_TOWN.bin");

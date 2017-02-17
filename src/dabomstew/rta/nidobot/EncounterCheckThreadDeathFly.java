@@ -62,9 +62,8 @@ public class EncounterCheckThreadDeathFly extends Thread {
                 wrap.advanceToAddress(RedBlueAddr.newBattleAddr);
 
                 // encounter found?
-                if (mem.getHRA() >= 0 && mem.getHRA() <= 14) { // 24
-                    //  got encounter?
-                    // TODO: make sure this doesnt get hit by trainer
+                if (DeathFlyBot.isEncounter(mem)) {
+                    // TODO: make sure this doesnt get hit by trainer w/ no encounter
                     System.out.println("we found a deathfly!");
                     String rngAtEnc = mem.getRNGState();
                     wrap.advanceFrame();

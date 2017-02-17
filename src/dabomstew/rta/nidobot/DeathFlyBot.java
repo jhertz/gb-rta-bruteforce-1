@@ -24,6 +24,7 @@ import java.util.LinkedList;
 import java.util.concurrent.ConcurrentHashMap;
 
 import dabomstew.rta.*;
+import dabomstew.rta.generic.RBMap;
 import mrwint.gbtasgen.Gb;
 
 public class DeathFlyBot {
@@ -163,7 +164,6 @@ public class DeathFlyBot {
 
         for (Position pos : spm) {
             try {
-               // Gb.loadGambatte(numEncounterThreads); // maybe this will stop us segfaulting?
                 int baseCost = 0;
                 ps.printf("Starting position: map %d x %d y %d cost %d\n", pos.map, pos.x, pos.y, baseCost);
                 logF("testing starting position x=%d y=%d map=%d cost=%d\n", pos.x, pos.y, pos.map, baseCost);
@@ -233,9 +233,9 @@ public class DeathFlyBot {
                   //  System.out.println("tfs: " + mem.getTurnFrameStatus());
                     System.out.println("addr:" + result);
 
-                    if(result == RedBlueAddr.encounterTestAddr && !atGoal(mem)){ //might have found an enc
+                    if(result == RedBlueAddr.encounterTestAddr && !atGoal(mem) && isEncounter(mem)){ //might have found an enc
                         System.out.println("found an encounter early :(, mem.hra:" + mem.getHRA());
-                        for(int i=0; i < 1000; i++)
+                        for(int i=0; i < 1000; i++) //TODO: adjust these later when weve confirmed were not getting false encounters
                             wrap.advanceFrame();
                         Thread.sleep(1000);
                         garbage = true;
@@ -479,6 +479,11 @@ public class DeathFlyBot {
     private static void logDate() {
         Date date = new Date();
         mainLogCopy.print("[" + dateFormat.format(date) + "] ");
+    }
+
+    public static boolean isEncounter(GBMemory mem){ //XXX: wtf are we getting nullptrs here?
+        return (mem.getHRA() >= 0 && mem.getHRA() < RBMap.getMapByID(mem.getMap()).getGlobalEncounterRate());
+
     }
 
 }
